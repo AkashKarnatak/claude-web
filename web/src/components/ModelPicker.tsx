@@ -18,7 +18,9 @@ export function ModelPicker() {
 
   useEffect(() => {
     if (!open) return;
-    const idx = models.findIndex((m) => m.value === current || m.label === current);
+    const idx = models.findIndex(
+      (m) => m.value === current || m.resolvedModel === current || m.label === current,
+    );
     setSelected(idx >= 0 ? idx : 0);
     popoverRef.current?.focus();
     // Click-away closes (no backdrop since this is a popover, not a modal).
@@ -74,7 +76,8 @@ export function ModelPicker() {
       )}
       <div className="model-list">
         {models.map((m, i) => {
-          const isCurrent = m.value === current || m.label === current;
+          const isCurrent =
+            m.value === current || m.resolvedModel === current || m.label === current;
           return (
             <button
               key={m.value}

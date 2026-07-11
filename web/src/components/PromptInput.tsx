@@ -263,8 +263,10 @@ export function PromptInput() {
                 accept({ ...typeahead, selected: i });
               }}
             >
-              <span className="typeahead-icon">{typeahead.type === 'command' ? '/' : '+'}</span>
-              <span className="typeahead-value">{item.value}</span>
+              {typeahead.type === 'file' && <span className="typeahead-icon">+</span>}
+              <span className="typeahead-value">
+                {typeahead.type === 'command' ? `/${item.value}` : item.value}
+              </span>
               {item.description && <span className="typeahead-desc">{item.description}</span>}
             </button>
           ))}

@@ -39,7 +39,7 @@ export interface SessionInfo {
   tools: string[];
   permissionMode: string;
   slashCommands: Array<{ name: string; description: string }>;
-  models: Array<{ value: string; label: string; description: string }>;
+  models: Array<{ value: string; label: string; description: string; resolvedModel?: string }>;
   bypassAvailable: boolean;
 }
 

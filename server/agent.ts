@@ -84,7 +84,12 @@ export class AgentSession {
   // Rich command list from initializationResult (has descriptions, unlike
   // the init event's bare names).
   private slashCommands: Array<{ name: string; description: string }> = [];
-  private models: Array<{ value: string; label: string; description: string }> = [];
+  private models: Array<{
+    value: string;
+    label: string;
+    description: string;
+    resolvedModel?: string;
+  }> = [];
   private initSeen = false;
 
   // --- streaming state (per in-flight assistant API message) ---
@@ -156,6 +161,9 @@ export class AgentSession {
           value: m.value,
           label: m.displayName,
           description: (m as { description?: string }).description ?? '',
+          // Canonical wire id (e.g. 'opus[1m]' → 'claude-opus-4-8[1m]') so the
+          // client can match the init event's full model id to a row.
+          resolvedModel: m.resolvedModel,
         }));
       } catch {
         // model list is optional

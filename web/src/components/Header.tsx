@@ -1,5 +1,6 @@
 // Status, model, permission-mode selector, Stop button (ARCHITECTURE.md §8).
 
+import { modelDisplayName } from '../models';
 import { useStore } from '../store';
 import { PanelLeftIcon } from './icons';
 
@@ -41,7 +42,7 @@ export function Header() {
             onClick={() => useStore.setState({ modelPickerOpen: true })}
             title="Change model (/model)"
           >
-            {session.model || 'default'}
+            {modelDisplayName(session)}
           </button>
         )}
       </div>
