@@ -57,11 +57,38 @@ export function MessageList() {
   const expectedScroll = useRef<number | null>(null);
   const [spacer, setSpacer] = useState(0);
 
+  const anim = useRef<number | null>(null);
+
   const pinToBottom = () => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
     expectedScroll.current = el.scrollTop;
+  };
+
+  /** Smooth-scroll to the bottom, marking every frame as programmatic so
+   * the follow logic can't mistake it for user scrolling. The target is
+   * re-read each frame (content/spacer may still be changing). */
+  const animateToBottom = (duration = 400) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (anim.current !== null) cancelAnimationFrame(anim.current);
+    const from = el.scrollTop;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const el2 = scrollRef.current;
+      if (!el2) {
+        anim.current = null;
+        return;
+      }
+      const t = Math.min(1, (now - t0) / duration);
+      const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const target = el2.scrollHeight - el2.clientHeight;
+      el2.scrollTop = from + (target - from) * ease;
+      expectedScroll.current = el2.scrollTop;
+      anim.current = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    anim.current = requestAnimationFrame(step);
   };
 
   /** Spacer sized so max-scroll puts the anchor at the top while the reply
@@ -80,7 +107,8 @@ export function MessageList() {
       next = Math.max(0, el.clientHeight - belowAnchor - ANCHOR_MARGIN);
     }
     setSpacer(next);
-    if (follow.current) {
+    // While the send animation runs it tracks the moving bottom itself.
+    if (follow.current && anim.current === null) {
       // Account for the spacer change applying on the next frame.
       requestAnimationFrame(pinToBottom);
     }
@@ -102,9 +130,14 @@ export function MessageList() {
     const el = scrollRef.current;
     if (!el) return;
     if (expectedScroll.current !== null && Math.abs(el.scrollTop - expectedScroll.current) < 2) {
-      return; // our own pin
+      return; // our own pin/animation frame
     }
     expectedScroll.current = null;
+    if (anim.current !== null) {
+      // User grabbed the scroll mid-animation; stop fighting them.
+      cancelAnimationFrame(anim.current);
+      anim.current = null;
+    }
     follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   };
 
@@ -124,9 +157,13 @@ export function MessageList() {
     if (!last || last.kind !== 'user' || anchoredId.current === last.id) return;
     anchoredId.current = last.id;
     follow.current = true;
-    // recompute sizes the spacer and pins to the (new) bottom, which with a
-    // fresh anchor means the bubble lands at the top of the view.
-    requestAnimationFrame(recompute);
+    // Start the animation before recompute so its instant pin stands down;
+    // the animation glides to the (moving) bottom, which with a fresh
+    // anchor means the bubble lands at the top of the view.
+    requestAnimationFrame(() => {
+      animateToBottom();
+      recompute();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
