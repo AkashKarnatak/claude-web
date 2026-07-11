@@ -288,8 +288,9 @@ body {
 .message-list {
   flex: 1;
   overflow-y: auto;
-  /* Bottom padding reserves the composer's resting height (it overlays). */
-  padding: 24px 0 110px;
+  /* Bottom padding reserves the composer's resting height plus a little
+     breathing room above its border. */
+  padding: 24px 0 120px;
 }
 
 .message-list-inner > * {
