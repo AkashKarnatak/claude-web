@@ -67,6 +67,9 @@ interface AppState {
   fileSuggestions: { reqId: string; items: string[] } | null;
   modelPickerOpen: boolean;
   sidebarOpen: boolean;
+  /** Bumps when a conversation is opened or the draft is entered — NOT on
+   * session-id rekeys. Drives scroll-state resets in the message list. */
+  openSeq: number;
   setConnected: (connected: boolean) => void;
   handleServerMsg: (msg: ServerMsg) => void;
   /** Batched streaming deltas (one store update per animation frame). */
@@ -81,6 +84,7 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
     case 'draft':
       // Blank state: keep session info (typeahead/mode) but clear the chat.
       return {
+        openSeq: state.openSeq + 1,
         activeId: null,
         activeMeta: null,
         items: [],
@@ -111,6 +115,7 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
       // History replay renders everything as settled.
       return {
         ...acc,
+        openSeq: state.openSeq + 1,
         items: acc.items.map((it) =>
           (it.kind === 'assistant' || it.kind === 'thinking') && it.streaming
             ? { ...it, streaming: false }
@@ -324,6 +329,7 @@ export const useStore = create<AppState>((set, get) => ({
   fileSuggestions: null,
   modelPickerOpen: false,
   sidebarOpen: false,
+  openSeq: 0,
 
   setConnected: (connected) => set({ connected }),
 

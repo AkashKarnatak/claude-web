@@ -1,7 +1,14 @@
 // Renders the transcript; completed messages are memoized components so
 // token streaming only re-renders the live message (ARCHITECTURE.md §7).
+//
+// Scroll model (claude.ai-style): sending a message anchors your bubble at
+// the TOP of the view, and the reply streams in below. A trailing spacer is
+// continuously resized so that "scrolled to the bottom" means exactly
+// "anchor at top" while the reply is shorter than the viewport — and once
+// the reply outgrows it, following the bottom follows the streaming text.
+// Scrolling up disengages the follow; sending re-engages it.
 
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useStore, type TranscriptItem } from '../store';
 import { AssistantMessage } from './AssistantMessage';
 import { ThinkingPanel } from './ThinkingPanel';
@@ -34,44 +41,93 @@ const Item = memo(function Item({ item }: { item: TranscriptItem }) {
   }
 });
 
+// List bottom padding (120px) + the anchor's offset from the top (12px).
+const ANCHOR_MARGIN = 132;
+
 export function MessageList() {
   const items = useStore((s) => s.items);
+  const openSeq = useStore((s) => s.openSeq);
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  const stickToBottom = useRef(true);
+  const spacerRef = useRef<HTMLDivElement>(null);
+  const anchoredId = useRef<string | null>(null);
+  const follow = useRef(false);
+  // Scroll position we last set programmatically: scroll events landing
+  // there are ours; anything else is the user and can disengage the follow.
+  const expectedScroll = useRef<number | null>(null);
+  const [spacer, setSpacer] = useState(0);
 
+  const pinToBottom = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    expectedScroll.current = el.scrollTop;
+  };
+
+  /** Spacer sized so max-scroll puts the anchor at the top while the reply
+   * is short; shrinks to 0 as the reply grows (no leftover blank scroll). */
+  const recompute = () => {
+    const el = scrollRef.current;
+    const spacerEl = spacerRef.current;
+    const anchor = anchoredId.current
+      ? el?.querySelector<HTMLElement>(`[data-msg-id="${anchoredId.current}"]`)
+      : null;
+    if (!el || !spacerEl) return;
+    let next = 0;
+    if (anchor) {
+      const belowAnchor =
+        spacerEl.getBoundingClientRect().top - anchor.getBoundingClientRect().top;
+      next = Math.max(0, el.clientHeight - belowAnchor - ANCHOR_MARGIN);
+    }
+    setSpacer(next);
+    if (follow.current) {
+      // Account for the spacer change applying on the next frame.
+      requestAnimationFrame(pinToBottom);
+    }
+  };
+
+  // Content growth (streaming, late KaTeX/highlight layout) → keep model.
+  useEffect(() => {
+    const inner = innerRef.current;
+    if (!inner) return;
+    const ro = new ResizeObserver(() => recompute());
+    ro.observe(inner);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Manual scrolling away from the bottom disengages the follow; returning
+  // to the bottom re-engages it.
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (expectedScroll.current !== null && Math.abs(el.scrollTop - expectedScroll.current) < 2) {
+      return; // our own pin
+    }
+    expectedScroll.current = null;
+    follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   };
 
-  // Pin to bottom on ANY size change while stuck: content growth (streaming,
-  // late KaTeX/highlight layout) and viewport shrink (spinner status line
-  // appearing under the list) — not just item-count changes.
+  // Opening/switching a conversation (NOT session-id rekeys, which happen
+  // mid-turn): land on the latest content.
   useEffect(() => {
-    const el = scrollRef.current;
-    const inner = innerRef.current;
-    if (!el || !inner) return;
-    const pin = () => {
-      if (stickToBottom.current) el.scrollTop = el.scrollHeight;
-    };
-    const ro = new ResizeObserver(pin);
-    ro.observe(el);
-    ro.observe(inner);
-    return () => ro.disconnect();
-  }, []);
+    anchoredId.current = null;
+    follow.current = false;
+    setSpacer(0);
+    requestAnimationFrame(pinToBottom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSeq]);
 
+  // A newly sent message becomes the anchor and re-engages the follow.
   useEffect(() => {
-    // Sending your own message always snaps to the bottom, even if you had
-    // scrolled up to read history.
-    if (items.length > 0 && items[items.length - 1].kind === 'user') {
-      stickToBottom.current = true;
-    }
-    const el = scrollRef.current;
-    if (el && stickToBottom.current) {
-      el.scrollTop = el.scrollHeight;
-    }
+    const last = items[items.length - 1];
+    if (!last || last.kind !== 'user' || anchoredId.current === last.id) return;
+    anchoredId.current = last.id;
+    follow.current = true;
+    // recompute sizes the spacer and pins to the (new) bottom, which with a
+    // fresh anchor means the bubble lands at the top of the view.
+    requestAnimationFrame(recompute);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
   return (
@@ -87,8 +143,11 @@ export function MessageList() {
           </div>
         )}
         {items.map((item) => (
-          <Item key={item.id} item={item} />
+          <div key={item.id} data-msg-id={item.id}>
+            <Item item={item} />
+          </div>
         ))}
+        <div ref={spacerRef} style={{ height: spacer }} aria-hidden />
       </div>
     </div>
   );
