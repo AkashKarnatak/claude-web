@@ -105,7 +105,8 @@ body {
   flex-direction: column;
   padding: 8px 12px 12px;
   gap: 10px;
-  overflow-y: auto;
+  /* Header + New chat stay put; only the conversation list scrolls. */
+  overflow: hidden;
   opacity: 1;
   transition: opacity 0.2s ease;
 }
@@ -135,9 +136,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .conversation-item {
+  flex-shrink: 0;
   text-align: left;
   padding: 8px 10px;
   border: none;
