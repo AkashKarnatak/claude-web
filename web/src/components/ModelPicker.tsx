@@ -4,6 +4,7 @@
 // intercept it and render our own, then apply via set_model.
 
 import { useEffect, useRef, useState } from 'react';
+import { modelMatches } from '../models';
 import { useStore } from '../store';
 import { send } from '../ws';
 
@@ -18,8 +19,9 @@ export function ModelPicker() {
 
   useEffect(() => {
     if (!open) return;
-    const idx = models.findIndex(
-      (m) => m.value === current || m.resolvedModel === current || m.label === current,
+    const isDefault = !current || current === 'default';
+    const idx = models.findIndex((m) =>
+      isDefault ? m.value === 'default' : m.value !== 'default' && modelMatches(m, current),
     );
     setSelected(idx >= 0 ? idx : 0);
     popoverRef.current?.focus();
@@ -77,7 +79,9 @@ export function ModelPicker() {
       <div className="model-list">
         {models.map((m, i) => {
           const isCurrent =
-            m.value === current || m.resolvedModel === current || m.label === current;
+            !current || current === 'default'
+              ? m.value === 'default'
+              : m.value !== 'default' && modelMatches(m, current);
           return (
             <button
               key={m.value}

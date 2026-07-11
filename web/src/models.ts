@@ -5,8 +5,16 @@ import type { SessionInfo } from './store';
 
 type ModelRow = SessionInfo['models'][number];
 
-function matches(row: ModelRow, id: string): boolean {
-  return row.value === id || row.resolvedModel === id || row.label === id;
+/** Strip the context-variant suffix: transcripts record the bare API id
+ * (claude-opus-4-8) while list rows are keyed as opus[1m]. */
+function base(id: string): string {
+  return id.replace(/\[1m\]$/, '');
+}
+
+export function modelMatches(row: ModelRow, id: string): boolean {
+  if (row.value === id || row.resolvedModel === id || row.label === id) return true;
+  const b = base(id);
+  return base(row.value) === b || (row.resolvedModel !== undefined && base(row.resolvedModel) === b);
 }
 
 export function modelDisplayName(session: SessionInfo | null): string {
@@ -17,8 +25,8 @@ export function modelDisplayName(session: SessionInfo | null): string {
   // Prefer a concrete row; the 'default' alias row can resolve to the same
   // wire id as the model it currently points at.
   const hit =
-    session.models.find((r) => r.value !== 'default' && matches(r, id)) ??
-    session.models.find((r) => matches(r, id));
+    session.models.find((r) => r.value !== 'default' && modelMatches(r, id)) ??
+    session.models.find((r) => modelMatches(r, id));
   if (!hit) return id;
   if (hit.value === 'default') {
     // "Use the default model (currently Opus 4.8 (1M context))" → the name.
