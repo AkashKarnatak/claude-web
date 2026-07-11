@@ -1,6 +1,5 @@
 // Status, model, permission-mode selector, Stop button (ARCHITECTURE.md §8).
 
-import { availableModes, setMode } from '../modes';
 import { useStore } from '../store';
 import { PanelLeftIcon } from './icons';
 
@@ -30,7 +29,7 @@ export function Header() {
           </button>
         )}
         <span className={`status-dot ${connected ? status : 'disconnected'}`} />
-        <strong>{activeMeta?.title ?? 'claude-web'}</strong>
+        <strong>{activeMeta?.title ?? 'claude web'}</strong>
         <span className="header-status">
           {connected ? STATUS_LABEL[status] : 'Disconnected'}
         </span>
@@ -45,17 +44,6 @@ export function Header() {
             {session.model || 'default'}
           </button>
         )}
-        <select
-          value={session?.permissionMode ?? 'default'}
-          onChange={(e) => setMode(e.target.value)}
-          title="Permission mode (shift+tab to cycle)"
-        >
-          {availableModes(session?.bypassAvailable ?? false).map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
       </div>
     </header>
   );

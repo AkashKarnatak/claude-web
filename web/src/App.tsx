@@ -1,18 +1,30 @@
 import { useEffect } from 'react';
 import { connect, send } from './ws';
 import { cycleMode } from './modes';
+import { clearPermissionNotification } from './notify';
 import { useStore } from './store';
 import { Header } from './components/Header';
 import { MessageList } from './components/MessageList';
 import { ModeBar } from './components/ModeBar';
-import { PermissionModal } from './components/PermissionModal';
 import { PromptInput } from './components/PromptInput';
 import { Sidebar } from './components/Sidebar';
 import { StatusLine } from './components/StatusLine';
 
 export default function App() {
+  const pendingPermissions = useStore((s) => s.permissions.length);
+
+  // Title-bar indicator while permission requests are waiting.
+  useEffect(() => {
+    document.title = pendingPermissions > 0 ? '● Permission needed — claude web' : 'claude web';
+    return () => {
+      document.title = 'claude web';
+    };
+  }, [pendingPermissions]);
+
   useEffect(() => {
     connect();
+    // Coming back to the tab addresses the notification's purpose.
+    window.addEventListener('focus', clearPermissionNotification);
 
     const onKeyDown = (e: globalThis.KeyboardEvent) => {
       // Shift+Tab cycles permission modes, like the TUI.
@@ -41,7 +53,10 @@ export default function App() {
       }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('focus', clearPermissionNotification);
+    };
   }, []);
 
   return (
@@ -56,7 +71,6 @@ export default function App() {
           <ModeBar />
         </div>
       </main>
-      <PermissionModal />
     </div>
   );
 }

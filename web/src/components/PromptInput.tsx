@@ -5,9 +5,11 @@
 // - Up on an empty input recalls prompt history
 
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { ensureNotifyPermission } from '../notify';
 import { useStore } from '../store';
 import { send } from '../ws';
 import { ModelPicker } from './ModelPicker';
+import { PermissionModal } from './PermissionModal';
 
 interface SuggestionItem {
   value: string;
@@ -154,6 +156,9 @@ export function PromptInput() {
   const submit = () => {
     const trimmed = text.trim();
     if (!trimmed || !connected) return;
+    // User gesture: the right moment to ask for notification permission,
+    // so permission-request alerts can reach an unfocused tab later.
+    ensureNotifyPermission();
     // /model is a client-UI command (the TUI intercepts it too): with no
     // args open our picker; with an arg switch directly.
     const modelMatch = trimmed.match(/^\/model(?:\s+(.*))?$/);
@@ -244,6 +249,7 @@ export function PromptInput() {
 
   return (
     <div className="prompt-input">
+      <PermissionModal />
       <ModelPicker />
       {typeahead && (
         <div className="typeahead">

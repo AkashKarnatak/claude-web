@@ -17,6 +17,7 @@
   --diff-del-bg: #fdeaea;
   --diff-del-text: #a13a2f;
   --code-bg: #f6f6f4;
+  --input-bg: #eeeeea;
   --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
   /* highlight.js token palette */
@@ -45,6 +46,7 @@
     --diff-del-bg: #3d2626;
     --diff-del-text: #e5938a;
     --code-bg: #282725;
+    --input-bg: #333230;
     --hl-keyword: #c678dd;
     --hl-string: #98c379;
     --hl-comment: #7f848e;
@@ -226,15 +228,6 @@ body {
 .header-model:hover {
   background: var(--bg-inset);
   color: var(--text);
-}
-
-.header select {
-  background: var(--bg-alt);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 13px;
 }
 
 .icon-btn {
@@ -815,7 +808,7 @@ pre.diff-del {
   flex: 1;
   resize: none;
   overflow-y: hidden;
-  background: var(--bg-alt);
+  background: var(--input-bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -861,56 +854,50 @@ pre.diff-del {
   color: var(--err);
 }
 
-/* ---- permission modal ---- */
+/* ---- permission prompt (popover above the chat input) ---- */
 
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal {
+.permission-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px 24px;
-  width: min(560px, 92vw);
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  padding: 12px 14px;
+  z-index: 60;
 }
 
-.modal h3 {
-  margin: 0 0 8px;
+.permission-header {
+  font-size: 13.5px;
+  margin-bottom: 8px;
 }
 
-.modal-queue {
+.permission-queue {
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
-.modal-input {
+.permission-input {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 12.5px;
   background: var(--bg-inset);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 40vh;
+  max-height: 30vh;
   overflow-y: auto;
+  margin: 0;
 }
 
-.modal-actions {
+.permission-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 /* ---- model picker (popover above the chat input) ---- */

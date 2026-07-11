@@ -79,7 +79,7 @@ export function MessageList() {
       <div className="message-list-inner" ref={innerRef}>
         {items.length === 0 && (
           <div className="empty-state">
-            <h2>claude-web</h2>
+            <h2>claude web</h2>
             <p>
               Start a new chat below — a conversation is created with your first
               message. Past chats live in the sidebar.

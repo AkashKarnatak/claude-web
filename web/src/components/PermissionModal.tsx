@@ -1,5 +1,6 @@
 // In-browser approval prompt for the canUseTool round-trip
-// (ARCHITECTURE.md §8). Shows the first pending request.
+// (ARCHITECTURE.md §8) — anchored above the chat input like the TUI's
+// footer prompts, not a centered modal. Shows the first pending request.
 
 import { useStore } from '../store';
 import { send } from '../ws';
@@ -16,26 +17,21 @@ export function PermissionModal() {
   const command = input && typeof input.command === 'string' ? input.command : null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal">
-        <h3>Permission request</h3>
-        <p>
-          Claude wants to run <strong>{req.tool}</strong>
-          {permissions.length > 1 && (
-            <span className="modal-queue"> ({permissions.length - 1} more pending)</span>
-          )}
-        </p>
-        <pre className="modal-input">
-          {command ?? JSON.stringify(req.input, null, 2)}
-        </pre>
-        <div className="modal-actions">
-          <button className="btn deny" onClick={() => decide('deny')}>
-            Deny
-          </button>
-          <button className="btn allow" onClick={() => decide('allow')} autoFocus>
-            Allow
-          </button>
-        </div>
+    <div className="permission-popover">
+      <div className="permission-header">
+        Claude wants to run <strong>{req.tool}</strong>
+        {permissions.length > 1 && (
+          <span className="permission-queue"> · {permissions.length - 1} more pending</span>
+        )}
+      </div>
+      <pre className="permission-input">{command ?? JSON.stringify(req.input, null, 2)}</pre>
+      <div className="permission-actions">
+        <button className="btn deny" onClick={() => decide('deny')}>
+          Deny
+        </button>
+        <button className="btn allow" onClick={() => decide('allow')} autoFocus>
+          Allow
+        </button>
       </div>
     </div>
   );

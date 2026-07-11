@@ -18,11 +18,6 @@ export const MODE_CONFIG: Record<string, ModeConfig> = {
   bypassPermissions: { label: 'bypass permissions on', symbol: '⏵⏵', className: 'mode-bypass' },
 };
 
-/** Modes offered in the header dropdown, given session capabilities. */
-export function availableModes(bypassAvailable: boolean): string[] {
-  return ['default', 'acceptEdits', 'plan', 'auto', ...(bypassAvailable ? ['bypassPermissions'] : [])];
-}
-
 /**
  * TUI cycle: default → acceptEdits → plan → bypass (only when the session was
  * launched to allow it) → auto → default. If the engine rejects a mode (e.g.

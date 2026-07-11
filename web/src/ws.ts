@@ -3,6 +3,7 @@
 // backpressure) so fast token streams don't flood React with re-renders.
 
 import type { ClientMsg, ServerMsg } from '../../server/protocol';
+import { clearPermissionNotification, notifyPermissionRequest } from './notify';
 import { useStore } from './store';
 
 let ws: WebSocket | null = null;
@@ -54,6 +55,30 @@ function dispatch(msg: ServerMsg): void {
   }
   flushDeltas();
   useStore.getState().handleServerMsg(msg);
+
+  if (msg.t === 'permission_request') {
+    const input = msg.input as Record<string, unknown> | null;
+    const detail =
+      input && typeof input.command === 'string'
+        ? input.command
+        : input && typeof input.file_path === 'string'
+          ? input.file_path
+          : JSON.stringify(msg.input ?? {});
+    notifyPermissionRequest(msg.tool, detail);
+  } else if (msg.t === 'permission_resolved') {
+    const remaining = useStore.getState().permissions;
+    if (remaining.length === 0) {
+      clearPermissionNotification();
+    } else {
+      // Surface the next queued request to a still-unfocused user.
+      const next = remaining[0];
+      const input = next.input as Record<string, unknown> | null;
+      notifyPermissionRequest(
+        next.tool,
+        input && typeof input.command === 'string' ? input.command : JSON.stringify(next.input ?? {}),
+      );
+    }
+  }
 }
 
 export function connect(): void {
