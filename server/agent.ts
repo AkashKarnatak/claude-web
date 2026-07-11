@@ -93,6 +93,9 @@ export class AgentSession {
   // first text delta so tool-only messages don't render an empty bubble.
   private assistantText = '';
   private thinkingId: string | null = null;
+  private thinkingStreamed = 0; // chars streamed for the open thinking block
+  // Content-block types by index, so content_block_stop knows what ended.
+  private blockTypes = new Map<number, string>();
   // tool_use blocks under construction, keyed by content-block index.
   private pendingToolInputs = new Map<number, { id: string; name: string; json: string }>();
   // engine tool_use ids already surfaced, so canonical assistant messages
@@ -338,6 +341,7 @@ export class AgentSession {
         this.assistantStarted = false;
         this.assistantText = '';
         this.currentMessageTokens = 0;
+        this.blockTypes.clear();
         this.pendingToolInputs.clear();
         return;
 
@@ -353,10 +357,12 @@ export class AgentSession {
 
       case 'content_block_start': {
         const block = ev.content_block;
+        this.blockTypes.set(ev.index, block?.type ?? '');
         if (block?.type === 'tool_use') {
           this.pendingToolInputs.set(ev.index, { id: block.id, name: block.name, json: '' });
         } else if (block?.type === 'thinking') {
           this.thinkingId = randomUUID();
+          this.thinkingStreamed = 0;
           this.emit({ t: 'thinking_start', id: this.thinkingId });
         }
         return;
@@ -372,7 +378,9 @@ export class AgentSession {
           this.assistantText += delta.text;
           this.emit({ t: 'assistant_delta', id: this.assistantId, text: delta.text });
         } else if (delta?.type === 'thinking_delta' && this.thinkingId) {
-          this.emit({ t: 'thinking_delta', id: this.thinkingId, text: delta.thinking });
+          const text = delta.thinking ?? '';
+          this.thinkingStreamed += text.length;
+          if (text) this.emit({ t: 'thinking_delta', id: this.thinkingId, text });
         } else if (delta?.type === 'input_json_delta') {
           const pending = this.pendingToolInputs.get(ev.index);
           if (pending) pending.json += delta.partial_json;
@@ -381,16 +389,27 @@ export class AgentSession {
       }
 
       case 'content_block_stop': {
-        const pending = this.pendingToolInputs.get(ev.index);
-        if (pending) {
-          this.pendingToolInputs.delete(ev.index);
-          this.emitToolUse(pending.id, pending.name, parseJsonLoose(pending.json));
+        switch (this.blockTypes.get(ev.index)) {
+          case 'tool_use': {
+            const pending = this.pendingToolInputs.get(ev.index);
+            if (pending) {
+              this.pendingToolInputs.delete(ev.index);
+              this.emitToolUse(pending.id, pending.name, parseJsonLoose(pending.json));
+            }
+            return;
+          }
+          case 'thinking':
+            // If nothing streamed (thinking often arrives canonically, with
+            // only a signature in the stream), keep the panel open — the
+            // canonical assistant event will supply the content.
+            if (this.thinkingId && this.thinkingStreamed > 0) {
+              this.emit({ t: 'thinking_end', id: this.thinkingId });
+              this.thinkingId = null;
+            }
+            return;
+          default:
+            return;
         }
-        if (this.thinkingId && !pending) {
-          this.emit({ t: 'thinking_end', id: this.thinkingId });
-          this.thinkingId = null;
-        }
-        return;
       }
 
       default:
@@ -399,36 +418,56 @@ export class AgentSession {
   }
 
   /**
-   * Canonical end of an assistant API message. Emits assistant_end with the
-   * fully assembled Markdown (the client replaces its incrementally-built
-   * copy — avoids drift from dropped frames) and covers any tool_use blocks
-   * the stream didn't surface.
+   * Canonical `assistant` events. The engine emits one per COMPLETED content
+   * block while streaming (thinking → text → tool_use, separately), not one
+   * per API message — so only finalize the state belonging to the block types
+   * actually present. A thinking-only event must not reset the text stream,
+   * or every text delta after it would be dropped.
    */
   private finishAssistantMessage(content: Array<Record<string, any>> | string): void {
     const blocks = Array.isArray(content) ? content : [];
-    const markdown = blocks
-      .filter((b) => b.type === 'text')
-      .map((b) => b.text as string)
-      .join('\n\n');
-
-    const finalMarkdown = markdown || this.assistantText;
-    if (finalMarkdown || this.assistantStarted) {
-      const id = this.assistantId ?? randomUUID();
-      if (!this.assistantStarted) this.emit({ t: 'assistant_start', id });
-      this.emit({ t: 'assistant_end', id, markdown: finalMarkdown });
-    }
-    this.assistantId = null;
-    this.assistantStarted = false;
-    this.assistantText = '';
-
-    if (this.thinkingId) {
-      this.emit({ t: 'thinking_end', id: this.thinkingId });
-      this.thinkingId = null;
-    }
 
     for (const block of blocks) {
-      if (block.type === 'tool_use') {
-        this.emitToolUse(block.id, block.name, block.input);
+      switch (block.type) {
+        case 'text': {
+          // Replace the incrementally-built copy with canonical Markdown.
+          const markdown = (block.text as string) || this.assistantText;
+          if (markdown || this.assistantStarted) {
+            const id = this.assistantId ?? randomUUID();
+            if (!this.assistantStarted) this.emit({ t: 'assistant_start', id });
+            this.emit({ t: 'assistant_end', id, markdown });
+          }
+          // Next text block (if any) becomes a new message bubble.
+          this.assistantId = randomUUID();
+          this.assistantStarted = false;
+          this.assistantText = '';
+          break;
+        }
+
+        case 'thinking': {
+          const text = (block.thinking as string) ?? '';
+          if (this.thinkingId) {
+            // Panel already open from the stream; fill it if the stream only
+            // carried a signature, then close it.
+            if (this.thinkingStreamed === 0 && text) {
+              this.emit({ t: 'thinking_delta', id: this.thinkingId, text });
+            }
+            this.emit({ t: 'thinking_end', id: this.thinkingId });
+            this.thinkingId = null;
+            this.thinkingStreamed = 0;
+          } else if (text && !this.thinkingStreamed) {
+            // No stream events at all for this block — emit it whole.
+            const id = randomUUID();
+            this.emit({ t: 'thinking_start', id });
+            this.emit({ t: 'thinking_delta', id, text });
+            this.emit({ t: 'thinking_end', id });
+          }
+          break;
+        }
+
+        case 'tool_use':
+          this.emitToolUse(block.id, block.name, block.input);
+          break;
       }
     }
   }

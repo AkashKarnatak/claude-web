@@ -31,7 +31,12 @@ function flushDeltas(): void {
 }
 
 function scheduleFlush(): void {
-  if (rafHandle === null) {
+  if (rafHandle !== null) return;
+  if (document.hidden) {
+    // rAF doesn't fire in hidden tabs; keep the transcript current so it
+    // isn't a sudden wall of text when the user tabs back.
+    rafHandle = window.setTimeout(() => flushDeltas(), 250) as unknown as number;
+  } else {
     rafHandle = requestAnimationFrame(flushDeltas);
   }
 }

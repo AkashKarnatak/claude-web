@@ -254,7 +254,18 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
 
     case 'status': {
       if (msg.state === 'idle') {
-        return { status: msg.state, turn: null, currentTool: null, activity: 'requesting' };
+        return {
+          status: msg.state,
+          turn: null,
+          currentTool: null,
+          activity: 'requesting',
+          // Settle anything still marked streaming; the turn is over.
+          items: state.items.map((it) =>
+            (it.kind === 'assistant' || it.kind === 'thinking') && it.streaming
+              ? { ...it, streaming: false }
+              : it,
+          ),
+        };
       }
       // Start the spinner when the engine begins working on a turn.
       const turn = state.turn ?? { verb: sampleVerb(), startedAt: Date.now(), tokens: 0 };
