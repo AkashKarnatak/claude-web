@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useStore } from '../store';
 import { send } from '../ws';
+import { ModelPicker } from './ModelPicker';
 
 interface SuggestionItem {
   value: string;
@@ -232,6 +233,7 @@ export function PromptInput() {
 
   return (
     <div className="prompt-input">
+      <ModelPicker />
       {typeahead && (
         <div className="typeahead">
           {typeahead.items.map((item, i) => (

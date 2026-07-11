@@ -85,11 +85,44 @@ body {
   flex-shrink: 0;
   background: var(--bg-alt);
   border-right: 1px solid var(--border);
+  overflow: hidden;
+  transition: width 0.25s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  border-right-color: transparent;
+}
+
+/* Fixed-width inner panel: content keeps its layout while the outer width
+   animates, so nothing squishes or rewraps mid-transition. */
+.sidebar-inner {
+  width: 240px;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 12px;
-  gap: 12px;
+  padding: 8px 12px 12px;
+  gap: 10px;
   overflow-y: auto;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar.collapsed .sidebar-inner {
+  opacity: 0;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding-left: 4px;
 }
 
 .new-chat {
@@ -125,8 +158,13 @@ body {
 }
 
 @media (max-width: 720px) {
-  .sidebar {
-    display: none;
+  .sidebar:not(.collapsed) {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -196,6 +234,41 @@ body {
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 13px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.app {
+  position: relative;
+}
+
+.header-sidebar-toggle {
+  animation: fade-in 0.25s ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.icon-btn:hover {
+  background: var(--bg-inset);
+  color: var(--text);
 }
 
 .status-dot {
@@ -834,24 +907,36 @@ pre.diff-del {
   margin-top: 14px;
 }
 
-/* ---- model picker ---- */
+/* ---- model picker (popover above the chat input) ---- */
 
-.model-picker {
+.model-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  z-index: 50;
   outline: none;
 }
 
-.model-picker-current {
+.model-popover-header {
+  padding: 8px 12px;
+  font-size: 12.5px;
   color: var(--text-dim);
-  font-size: 13px;
-  margin: 0 0 10px;
+  border-bottom: 1px solid var(--border);
 }
 
 .model-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 50vh;
+  max-height: 40vh;
   overflow-y: auto;
+  padding: 4px;
 }
 
 .model-item {

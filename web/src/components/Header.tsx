@@ -3,6 +3,7 @@
 import { availableModes, setMode } from '../modes';
 import { useStore } from '../store';
 import { send } from '../ws';
+import { PanelLeftIcon } from './icons';
 
 const STATUS_LABEL = {
   idle: 'Idle',
@@ -15,10 +16,20 @@ export function Header() {
   const session = useStore((s) => s.session);
   const connected = useStore((s) => s.connected);
   const activeMeta = useStore((s) => s.activeMeta);
+  const sidebarOpen = useStore((s) => s.sidebarOpen);
 
   return (
     <header className="header">
       <div className="header-title">
+        {!sidebarOpen && (
+          <button
+            className="icon-btn header-sidebar-toggle"
+            title="Open sidebar (Ctrl+B)"
+            onClick={() => useStore.setState({ sidebarOpen: true })}
+          >
+            <PanelLeftIcon />
+          </button>
+        )}
         <span className={`status-dot ${connected ? status : 'disconnected'}`} />
         <strong>{activeMeta?.title ?? 'claude-web'}</strong>
         <span className="header-status">

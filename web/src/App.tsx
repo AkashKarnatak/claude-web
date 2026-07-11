@@ -5,7 +5,6 @@ import { useStore } from './store';
 import { Header } from './components/Header';
 import { MessageList } from './components/MessageList';
 import { ModeBar } from './components/ModeBar';
-import { ModelPicker } from './components/ModelPicker';
 import { PermissionModal } from './components/PermissionModal';
 import { PromptInput } from './components/PromptInput';
 import { Sidebar } from './components/Sidebar';
@@ -20,6 +19,12 @@ export default function App() {
       if (e.key === 'Tab' && e.shiftKey) {
         e.preventDefault();
         cycleMode();
+        return;
+      }
+      // Ctrl+B toggles the sidebar.
+      if (e.key === 'b' && e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        useStore.setState((s) => ({ sidebarOpen: !s.sidebarOpen }));
         return;
       }
       // Esc interrupts the running turn (typeahead/modal Esc is handled and
@@ -52,7 +57,6 @@ export default function App() {
         </div>
       </main>
       <PermissionModal />
-      <ModelPicker />
     </div>
   );
 }

@@ -66,6 +66,7 @@ interface AppState {
   currentTool: string | null;
   fileSuggestions: { reqId: string; items: string[] } | null;
   modelPickerOpen: boolean;
+  sidebarOpen: boolean;
   setConnected: (connected: boolean) => void;
   handleServerMsg: (msg: ServerMsg) => void;
   /** Batched streaming deltas (one store update per animation frame). */
@@ -298,6 +299,7 @@ export const useStore = create<AppState>((set, get) => ({
   currentTool: null,
   fileSuggestions: null,
   modelPickerOpen: false,
+  sidebarOpen: false,
 
   setConnected: (connected) => set({ connected }),
 
