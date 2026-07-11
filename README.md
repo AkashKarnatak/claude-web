@@ -1,0 +1,74 @@
+# claude-web
+
+A local web app that runs **Claude Code** programmatically and renders its output
+beautifully in the browser — full Markdown, LaTeX math (KaTeX), syntax-highlighted
+code, and rich tool-call cards. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the
+full design; this implements it end to end.
+
+- **Backend** (`server/`): Node + TypeScript. Drives the Claude Code engine via
+  `@anthropic-ai/claude-agent-sdk` (`query()` with a streaming-input session),
+  normalizes engine events into a small stable wire protocol, and serves it over
+  a WebSocket bound to **127.0.0.1 only**. Interactive tool permissions go
+  through `canUseTool` → an in-browser Allow/Deny modal. Conversations and
+  transcripts persist under `data/`.
+- **Frontend** (`web/`): React + Vite + Zustand. `react-markdown` + `remark-gfm` +
+  `remark-math` + `rehype-katex` + `rehype-highlight`, token-level streaming with
+  per-animation-frame batching, tool cards with diffs for edits, a thinking
+  panel, permission modal, per-turn usage/cost footer, light/dark themes.
+
+TUI-parity extras:
+
+- **Spinner status line** while the agent works: a whimsical verb sampled per
+  turn (the TUI's own list), elapsed time, live output-token counter, current
+  activity/tool, and `esc to interrupt` (Esc actually interrupts).
+- **Permission-mode cycling**: `Shift+Tab` cycles
+  `default → accept edits → plan → auto` (plus `bypass permissions` when the
+  server is launched with `ALLOW_BYPASS=true`), with the TUI-style colored
+  indicator under the input (`⏵⏵ accept edits on`, `⏸ plan mode on`, …).
+- **Typeahead**: `/` at the start suggests the engine's slash commands; `@token`
+  anywhere suggests project files (fuzzy-matched server-side); ↑/↓ navigate,
+  Tab/Enter accept, Esc dismisses. ↑ on an empty input recalls prompt history.
+
+## Setup
+
+```bash
+npm install
+cp .env.example .env   # put your ANTHROPIC_API_KEY in .env
+```
+
+The API key lives only in the backend environment; the browser never sees it.
+
+## Run
+
+Development (Vite dev server + backend, WebSocket proxied):
+
+```bash
+npm run dev            # UI on http://127.0.0.1:5173, backend on :8787
+```
+
+Production (backend serves the built frontend):
+
+```bash
+npm start              # builds web/dist, serves http://127.0.0.1:8787
+```
+
+## Configuration (.env)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | — (required) | Engine authentication |
+| `PORT` | `8787` | Localhost port |
+| `WORK_DIR` | project dir | Directory the agent operates in |
+| `PERMISSION_MODE` | `default` | `default` \| `acceptEdits` \| `plan` \| `auto` \| `bypassPermissions` |
+| `ALLOW_BYPASS` | `false` | Launch sessions with `--dangerously-skip-permissions` so the `bypassPermissions` mode can be switched on from the UI |
+| `DATA_DIR` | `./data` | Where conversations/transcripts are stored |
+| `MODEL` | engine default | Model override |
+| `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | — | Comma-separated tool gating |
+
+## Notes
+
+- The server binds `127.0.0.1` and rejects WebSocket upgrades from non-localhost
+  origins. It is not designed to be exposed to a network.
+- Sessions resume across restarts: the engine `session_id` is stored per
+  conversation and passed back via `options.resume`.
+- Requires Node 20.x (Vite 6 is pinned for Node ≤ 20.12 compatibility).
