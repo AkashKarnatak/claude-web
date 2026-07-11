@@ -85,18 +85,3 @@ export type ClientMsg =
   | { t: 'list_conversations' }
   | { t: 'suggest_files'; reqId: string; query: string };
 
-// Wire messages worth persisting in the transcript. Deltas and transient
-// status are rebuilt live and skipped; thinking is persisted as a merged
-// start/delta/end trio by the connection manager, not per-token.
-const PERSISTED: ReadonlySet<ServerMsg['t']> = new Set([
-  'user_prompt',
-  'assistant_end',
-  'tool_use',
-  'tool_result',
-  'result',
-  'error',
-] as const);
-
-export function shouldPersist(msg: ServerMsg): boolean {
-  return PERSISTED.has(msg.t);
-}

@@ -218,16 +218,6 @@ body {
   color: var(--text-dim);
   font-size: 12.5px;
   font-family: var(--mono);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.header-model:hover {
-  background: var(--bg-inset);
-  color: var(--text);
 }
 
 .icon-btn {

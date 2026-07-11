@@ -120,8 +120,20 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
       };
     }
 
-    case 'session':
+    case 'session': {
+      // Resume forks the engine session under a new id; follow it so the
+      // sidebar highlight and future opens track the engine's identity.
+      const follow =
+        msg.conversationId && state.activeId && msg.conversationId !== state.activeId
+          ? {
+              activeId: msg.conversationId,
+              activeMeta: state.activeMeta
+                ? { ...state.activeMeta, id: msg.conversationId, sessionId: msg.sessionId }
+                : state.activeMeta,
+            }
+          : {};
       return {
+        ...follow,
         session: {
           sessionId: msg.sessionId,
           model: msg.model,
@@ -135,6 +147,7 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
           bypassAvailable: msg.bypassAvailable,
         },
       };
+    }
 
     case 'mode':
       return state.session

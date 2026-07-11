@@ -71,8 +71,24 @@ class InputQueue implements AsyncIterable<SDKUserMessage> {
   }
 }
 
+const BUFFERED: ReadonlySet<ServerMsg['t']> = new Set([
+  'user_prompt',
+  'assistant_end',
+  'tool_use',
+  'tool_result',
+  'result',
+  'error',
+] as const);
+
 export class AgentSession {
-  readonly conversationId: string;
+  /** Rekeyed to the engine's session id once init reports it (resume forks). */
+  conversationId: string;
+  /**
+   * Renderable wire messages emitted since this session booted. The engine
+   * flushes its session JSONL lazily, so history for a LIVE conversation is
+   * served from this buffer layered over the file parse.
+   */
+  readonly transcript: ServerMsg[] = [];
   readonly permissions: PermissionBroker;
   private input = new InputQueue();
   private session: Query;
@@ -113,7 +129,10 @@ export class AgentSession {
 
   constructor(opts: AgentSessionOptions) {
     this.conversationId = opts.conversationId;
-    this.emit = opts.onMessage;
+    this.emit = (msg: ServerMsg) => {
+      if (BUFFERED.has(msg.t)) this.transcript.push(msg);
+      opts.onMessage(msg);
+    };
     this.allowBypass = opts.allowBypass ?? false;
     this.currentMode = opts.permissionMode;
     this.model = opts.model ?? '';
@@ -224,6 +243,11 @@ export class AgentSession {
       this.emit({ t: 'error', message: `Could not set model: ${errText(err)}` });
       this.emit({ t: 'model', model: this.model }); // revert optimistic clients
     }
+  }
+
+  /** Current model id as last reported/selected for this session. */
+  get modelId(): string {
+    return this.model;
   }
 
   close(): void {

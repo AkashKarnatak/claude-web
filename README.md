@@ -9,8 +9,10 @@ full design; this implements it end to end.
   `@anthropic-ai/claude-agent-sdk` (`query()` with a streaming-input session),
   normalizes engine events into a small stable wire protocol, and serves it over
   a WebSocket bound to **127.0.0.1 only**. Interactive tool permissions go
-  through `canUseTool` → an in-browser Allow/Deny modal. Conversations and
-  transcripts persist under `data/`.
+  through `canUseTool` → an in-browser Allow/Deny prompt. The sidebar lists
+  Claude Code's OWN sessions for `WORK_DIR` (the same history `claude
+  --resume` shows); opening a chat parses the engine's session JSONL from
+  `~/.claude/projects/` — terminal and web chats share one history.
 - **Frontend** (`web/`): React + Vite + Zustand. `react-markdown` + `remark-gfm` +
   `remark-math` + `rehype-katex` + `rehype-highlight`, token-level streaming with
   per-animation-frame batching, tool cards with diffs for edits, a thinking
@@ -61,7 +63,7 @@ npm start              # builds web/dist, serves http://127.0.0.1:8787
 | `WORK_DIR` | project dir | Directory the agent operates in |
 | `PERMISSION_MODE` | `default` | `default` \| `acceptEdits` \| `plan` \| `auto` \| `bypassPermissions` |
 | `ALLOW_BYPASS` | `false` | Launch sessions with `--dangerously-skip-permissions` so the `bypassPermissions` mode can be switched on from the UI |
-| `DATA_DIR` | `./data` | Where conversations/transcripts are stored |
+| `DATA_DIR` | `./data` | Cache location (engine info for instant typeahead) |
 | `MODEL` | engine default | Model override |
 | `ALLOWED_TOOLS` / `DISALLOWED_TOOLS` | — | Comma-separated tool gating |
 

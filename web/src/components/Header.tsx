@@ -36,15 +36,7 @@ export function Header() {
         </span>
       </div>
       <div className="header-controls">
-        {session && (
-          <button
-            className="header-model"
-            onClick={() => useStore.setState({ modelPickerOpen: true })}
-            title="Change model (/model)"
-          >
-            {modelDisplayName(session)}
-          </button>
-        )}
+        {session && <span className="header-model">{modelDisplayName(session)}</span>}
       </div>
     </header>
   );

@@ -11,8 +11,9 @@ function matches(row: ModelRow, id: string): boolean {
 
 export function modelDisplayName(session: SessionInfo | null): string {
   if (!session) return '';
-  const id = session.model;
-  if (!id) return 'default';
+  // No explicit selection = the engine default; resolve it through the
+  // 'default' row so the header shows the actual model it points at.
+  const id = session.model || 'default';
   // Prefer a concrete row; the 'default' alias row can resolve to the same
   // wire id as the model it currently points at.
   const hit =
