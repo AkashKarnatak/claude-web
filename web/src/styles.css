@@ -839,7 +839,6 @@ pre.diff-del {
   cursor: default;
 }
 
-.btn.send,
 .btn.allow {
   background: var(--accent);
   border-color: var(--accent);
@@ -848,11 +847,6 @@ pre.diff-del {
 
 .btn.deny {
   color: var(--err);
-}
-
-.btn.stop {
-  color: var(--err);
-  white-space: nowrap;
 }
 
 /* ---- permission modal ---- */

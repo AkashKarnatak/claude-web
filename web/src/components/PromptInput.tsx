@@ -271,9 +271,6 @@ export function PromptInput() {
         rows={Math.min(8, text.split('\n').length)}
         disabled={!connected}
       />
-      <button className="btn send" onClick={submit} disabled={!connected || !text.trim()}>
-        Send
-      </button>
     </div>
   );
 }

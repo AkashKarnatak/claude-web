@@ -2,7 +2,6 @@
 
 import { availableModes, setMode } from '../modes';
 import { useStore } from '../store';
-import { send } from '../ws';
 import { PanelLeftIcon } from './icons';
 
 const STATUS_LABEL = {
@@ -57,11 +56,6 @@ export function Header() {
             </option>
           ))}
         </select>
-        {status !== 'idle' && (
-          <button className="btn stop" onClick={() => send({ t: 'interrupt' })}>
-            ◼ Stop
-          </button>
-        )}
       </div>
     </header>
   );
