@@ -4,7 +4,7 @@
 // - Up/Down navigate, Tab/Enter accept, Esc dismiss
 // - Up on an empty input recalls prompt history
 
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useStore } from '../store';
 import { send } from '../ws';
 import { ModelPicker } from './ModelPicker';
@@ -71,6 +71,17 @@ export function PromptInput() {
   const fileReqRef = useRef<{ reqId: string; start: number; end: number } | null>(null);
   const debounceRef = useRef<number | null>(null);
   const historyIdxRef = useRef<number | null>(null);
+
+  // Auto-resize with wrapped lines, not just explicit newlines. Runs on any
+  // text change (typing, history recall, typeahead accept, clear on send).
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+    // Scrollbar only once content exceeds the max height, never before.
+    el.style.overflowY = el.scrollHeight > 220 ? 'auto' : 'hidden';
+  }, [text]);
 
   // Attach server file suggestions when they answer our latest request.
   useEffect(() => {
@@ -268,7 +279,7 @@ export function PromptInput() {
             ? 'Message Claude Code… ("/" for commands, "@" for files, Enter to send)'
             : 'Connecting…'
         }
-        rows={Math.min(8, text.split('\n').length)}
+        rows={1}
         disabled={!connected}
       />
     </div>
