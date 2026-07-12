@@ -27,6 +27,9 @@ interface Typeahead {
 
 const MAX_COMMAND_ITEMS = 8;
 
+// Touch devices: Enter inserts a newline; the send button sends.
+const IS_TOUCH = window.matchMedia('(pointer: coarse)').matches;
+
 // Stable fallback: a fresh [] per selector call would re-render forever.
 const NO_COMMANDS: Array<{ name: string; description: string }> = [];
 
@@ -231,6 +234,7 @@ export function PromptInput() {
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {
+      if (IS_TOUCH) return; // newline; sending is the button's job
       e.preventDefault();
       submit();
       return;
@@ -285,7 +289,7 @@ export function PromptInput() {
         placeholder={
           !connected
             ? 'Connecting…'
-            : window.matchMedia('(pointer: coarse)').matches
+            : IS_TOUCH
               ? 'Message Claude Code…'
               : 'Message Claude Code… ("/" for commands, "@" for files, Enter to send)'
         }
