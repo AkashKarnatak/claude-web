@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useStore } from '../store';
+import { send } from '../ws';
 
 function formatDuration(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -27,7 +28,7 @@ export function StatusLine() {
 
   if (!active || !turn) return null;
 
-  const parts: string[] = ['esc to interrupt', formatDuration(Date.now() - turn.startedAt)];
+  const parts: string[] = [formatDuration(Date.now() - turn.startedAt)];
   if (turn.tokens > 0) parts.push(`↓ ${turn.tokens} tokens`);
   if (activity === 'thinking') parts.push('thinking');
   if (activity === 'tool' && currentTool) parts.push(currentTool);
@@ -37,6 +38,11 @@ export function StatusLine() {
       <span className={`status-glyph activity-${activity}`}>✳</span>
       <span className="status-verb">{turn.verb}…</span>
       <span className="status-parts">({parts.join(' · ')})</span>
+      {/* Touch equivalent of Esc; the hint text covers keyboards. */}
+      <button className="status-stop" onClick={() => send({ t: 'interrupt' })}>
+        ◼ stop
+      </button>
+      <span className="status-esc-hint">esc to interrupt</span>
     </div>
   );
 }

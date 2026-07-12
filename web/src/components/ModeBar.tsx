@@ -1,7 +1,8 @@
-// Footer line under the prompt: permission-mode indicator + shift+tab hint,
-// mirroring the TUI's PromptInputFooterLeftSide.
+// Footer line under the prompt: permission-mode indicator + shift+tab hint.
+// The indicator is a tappable chip that cycles modes — the touch equivalent
+// of Shift+Tab — and is always shown so mobile users have something to tap.
 
-import { MODE_CONFIG } from '../modes';
+import { cycleMode, MODE_CONFIG } from '../modes';
 import { useStore } from '../store';
 
 export function ModeBar() {
@@ -10,11 +11,14 @@ export function ModeBar() {
 
   return (
     <div className="mode-bar">
-      {mode !== 'default' && (
-        <span className={`mode-indicator ${config.className}`}>
-          {config.symbol} {config.label}
-        </span>
-      )}
+      <button
+        className={`mode-chip ${config.className}`}
+        onClick={cycleMode}
+        title="Cycle permission mode (shift+tab)"
+      >
+        {config.symbol && <span>{config.symbol} </span>}
+        {mode === 'default' ? 'default mode' : config.label}
+      </button>
       <span className="mode-hint">shift+tab to cycle modes</span>
     </div>
   );

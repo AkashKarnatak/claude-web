@@ -283,13 +283,26 @@ export function PromptInput() {
           if (el) refreshTypeahead(text, el.selectionStart);
         }}
         placeholder={
-          connected
-            ? 'Message Claude Code… ("/" for commands, "@" for files, Enter to send)'
-            : 'Connecting…'
+          !connected
+            ? 'Connecting…'
+            : window.matchMedia('(pointer: coarse)').matches
+              ? 'Message Claude Code…'
+              : 'Message Claude Code… ("/" for commands, "@" for files, Enter to send)'
         }
         rows={1}
         disabled={!connected}
       />
+      {/* Touch devices get a send button (Enter is awkward there); hidden on
+          fine-pointer devices via CSS. */}
+      <button
+        className="send-btn"
+        onClick={submit}
+        disabled={!connected || !text.trim()}
+        title="Send"
+        aria-label="Send"
+      >
+        ➤
+      </button>
     </div>
   );
 }
