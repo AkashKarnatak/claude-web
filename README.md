@@ -59,7 +59,8 @@ npm start              # builds web/dist, serves http://127.0.0.1:8787
 | Variable | Default | Purpose |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | — (required) | Engine authentication |
-| `PORT` | `8787` | Localhost port |
+| `PORT` | `8787` | Server port |
+| `HOST` | `127.0.0.1` | Bind address. Non-loopback values expose an unauthenticated agent to the network — prefer an SSH tunnel |
 | `WORK_DIR` | project dir | Directory the agent operates in |
 | `PERMISSION_MODE` | `default` | `default` \| `acceptEdits` \| `plan` \| `auto` \| `bypassPermissions` |
 | `ALLOW_BYPASS` | `false` | Launch sessions with `--dangerously-skip-permissions` so the `bypassPermissions` mode can be switched on from the UI |

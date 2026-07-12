@@ -17,7 +17,10 @@ import type { ClientMsg, ConversationMeta, ServerMsg } from './protocol.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8787);
-const HOST = '127.0.0.1';
+// Default: loopback only (ARCHITECTURE.md §11). Binding a LAN address (or
+// 0.0.0.0) exposes an unauthenticated agent that can run shell commands and
+// spend your API key to everyone on that network — prefer an SSH tunnel.
+const HOST = process.env.HOST || '127.0.0.1';
 const WORK_DIR = process.env.WORK_DIR || ROOT;
 const PERMISSION_MODE = (process.env.PERMISSION_MODE || 'default') as PermissionMode;
 // Opt-in: launches sessions with allowDangerouslySkipPermissions so the
@@ -417,11 +420,15 @@ const server = http.createServer((req, res) => {
 // WebSocket server with Origin check (§11: blunt cross-site WS hijacking).
 // ---------------------------------------------------------------------------
 
-function originAllowed(origin: string | undefined): boolean {
+function originAllowed(origin: string | undefined, requestHost: string | undefined): boolean {
   if (!origin) return true; // non-browser clients (curl, tests)
   try {
-    const { hostname } = new URL(origin);
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+    const url = new URL(origin);
+    if (['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) return true;
+    // Non-loopback binds: accept same-origin only — the page was served from
+    // whatever host:port the user browsed to, so its Origin matches the
+    // request's Host header; a malicious site's origin won't.
+    return requestHost !== undefined && url.host === requestHost;
   } catch {
     return false;
   }
@@ -431,7 +438,7 @@ const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
   const url = new URL(req.url || '/', `http://${req.headers.host}`);
-  if (url.pathname !== '/ws' || !originAllowed(req.headers.origin)) {
+  if (url.pathname !== '/ws' || !originAllowed(req.headers.origin, req.headers.host)) {
     socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
     socket.destroy();
     return;
