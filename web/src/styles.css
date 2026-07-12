@@ -889,6 +889,59 @@ pre.diff-del {
   border-top: 1px solid var(--border);
 }
 
+/* ---- unlock screen (token auth for non-loopback binds) ---- */
+
+.unlock {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.unlock-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(380px, 100%);
+  text-align: center;
+}
+
+.unlock-card h2 {
+  margin: 0;
+}
+
+.unlock-card input {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 16px;
+  outline: none;
+  text-align: center;
+}
+
+.unlock-card input:focus {
+  border-color: var(--accent);
+}
+
+.unlock-hint {
+  color: var(--text-dim);
+  font-size: 13.5px;
+  margin: 0;
+}
+
+.unlock-hint.dim {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.unlock-error {
+  color: var(--err);
+}
+
 /* ---- prompt input ---- */
 
 .prompt-input {

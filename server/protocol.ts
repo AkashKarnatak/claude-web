@@ -66,7 +66,11 @@ export type ServerMsg =
   | { t: 'conversations'; items: ConversationMeta[] }
   | { t: 'history'; conversationId: string; meta: ConversationMeta; messages: ServerMsg[] }
   // Blank draft state: no conversation open; one is created on first prompt.
-  | { t: 'draft' };
+  | { t: 'draft' }
+  // Token auth handshake (only when bound to a non-loopback HOST).
+  | { t: 'auth_required' }
+  | { t: 'auth_ok' }
+  | { t: 'auth_bad' };
 
 export type ClientMsg =
   | { t: 'prompt'; text: string }
@@ -83,5 +87,6 @@ export type ClientMsg =
   | { t: 'new_conversation' }
   | { t: 'open_conversation'; conversationId: string }
   | { t: 'list_conversations' }
-  | { t: 'suggest_files'; reqId: string; query: string };
+  | { t: 'suggest_files'; reqId: string; query: string }
+  | { t: 'auth'; token: string };
 

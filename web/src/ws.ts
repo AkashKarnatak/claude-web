@@ -42,7 +42,38 @@ function scheduleFlush(): void {
   }
 }
 
+const TOKEN_KEY = 'claude-web-token';
+// Only auto-try the stored token once per connection; a rejection means it's
+// wrong and the user must type a new one.
+let triedStoredToken = false;
+
+export function submitToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+  useStore.setState({ authState: 'required' }); // pending until auth_ok
+  send({ t: 'auth', token });
+}
+
 function dispatch(msg: ServerMsg): void {
+  if (msg.t === 'auth_required') {
+    const stored = localStorage.getItem(TOKEN_KEY);
+    if (stored && !triedStoredToken) {
+      triedStoredToken = true;
+      send({ t: 'auth', token: stored });
+    } else {
+      useStore.setState({ authState: 'required' });
+    }
+    return;
+  }
+  if (msg.t === 'auth_ok') {
+    triedStoredToken = false;
+    useStore.setState({ authState: 'ok' });
+    return;
+  }
+  if (msg.t === 'auth_bad') {
+    localStorage.removeItem(TOKEN_KEY);
+    useStore.setState({ authState: 'failed' });
+    return;
+  }
   if (msg.t === 'assistant_delta') {
     queuedDeltas.push({ id: msg.id, kind: 'assistant', text: msg.text });
     scheduleFlush();

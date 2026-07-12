@@ -3,7 +3,7 @@
 // is never sent to the browser.
 
 import 'dotenv/config';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -31,6 +31,57 @@ const ALLOWED_TOOLS = splitList(process.env.ALLOWED_TOOLS);
 const DISALLOWED_TOOLS = splitList(process.env.DISALLOWED_TOOLS);
 const STATIC_DIR = path.join(ROOT, 'web', 'dist');
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
+
+// ---------------------------------------------------------------------------
+// Token auth: required whenever the bind address is not loopback — anyone who
+// can reach a LAN/tailnet bind could otherwise drive the agent. The token
+// comes from AUTH_TOKEN, else a generated one persisted under DATA_DIR.
+// ---------------------------------------------------------------------------
+
+const AUTH_REQUIRED = !['127.0.0.1', 'localhost', '::1'].includes(HOST);
+const AUTH_TOKEN_FILE = path.join(DATA_DIR, 'auth-token');
+const AUTH_TOKEN = AUTH_REQUIRED ? loadAuthToken() : null;
+
+function loadAuthToken(): string {
+  if (process.env.AUTH_TOKEN) return process.env.AUTH_TOKEN;
+  try {
+    const existing = fs.readFileSync(AUTH_TOKEN_FILE, 'utf8').trim();
+    if (existing) return existing;
+  } catch {
+    // none yet
+  }
+  const token = randomBytes(32).toString('base64url');
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(AUTH_TOKEN_FILE, token + '\n', { mode: 0o600 });
+  console.log(`[claude-web] generated access token — read it with: cat ${AUTH_TOKEN_FILE}`);
+  return token;
+}
+
+function tokenMatches(candidate: string): boolean {
+  if (!AUTH_TOKEN) return false;
+  // Hash both sides: constant-time compare without leaking length.
+  const a = createHash('sha256').update(candidate).digest();
+  const b = createHash('sha256').update(AUTH_TOKEN).digest();
+  return timingSafeEqual(a, b);
+}
+
+// Per-IP failure rate limit: 5 bad tokens → 60s lockout.
+const authFails = new Map<string, { count: number; lockedUntil: number }>();
+
+function authRateLimited(ip: string): boolean {
+  const entry = authFails.get(ip);
+  return !!entry && Date.now() < entry.lockedUntil;
+}
+
+function recordAuthFail(ip: string): void {
+  const entry = authFails.get(ip) ?? { count: 0, lockedUntil: 0 };
+  entry.count += 1;
+  if (entry.count >= 5) {
+    entry.lockedUntil = Date.now() + 60_000;
+    entry.count = 0;
+  }
+  authFails.set(ip, entry);
+}
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.warn(
@@ -446,7 +497,10 @@ server.on('upgrade', (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
 });
 
-wss.on('connection', (ws) => {
+const authedSockets = new WeakSet<WebSocket>();
+
+/** Normal post-auth connection bootstrap. */
+function bootstrap(ws: WebSocket): void {
   void refreshConversations().then((items) => send(ws, { t: 'conversations', items }));
   // Engine info (slash commands, model) so typeahead works in the draft; the
   // model shown is the user's last selection, which new chats launch on.
@@ -455,6 +509,16 @@ wss.on('connection', (ws) => {
   }
   // Land on a blank draft; past chats are one sidebar click away.
   send(ws, { t: 'draft' });
+}
+
+wss.on('connection', (ws, req) => {
+  const ip = req.socket.remoteAddress ?? 'unknown';
+  if (AUTH_REQUIRED) {
+    send(ws, { t: 'auth_required' });
+  } else {
+    authedSockets.add(ws);
+    bootstrap(ws);
+  }
 
   ws.on('message', (data) => {
     let msg: ClientMsg;
@@ -462,6 +526,25 @@ wss.on('connection', (ws) => {
       msg = JSON.parse(data.toString());
     } catch {
       send(ws, { t: 'error', message: 'Malformed client message' });
+      return;
+    }
+    if (!authedSockets.has(ws)) {
+      // Only the auth handshake is allowed before authentication.
+      if (msg.t !== 'auth') return;
+      if (process.env.AUTH_DEBUG) {
+        console.log(
+          `[auth-debug] ip=${ip} limited=${authRateLimited(ip)} tokenLen=${(msg.token ?? '').length} match=${tokenMatches(msg.token ?? '')}`,
+        );
+      }
+      if (authRateLimited(ip) || !tokenMatches(msg.token ?? '')) {
+        recordAuthFail(ip);
+        send(ws, { t: 'auth_bad' });
+        ws.close(4001, 'bad token');
+        return;
+      }
+      authedSockets.add(ws);
+      send(ws, { t: 'auth_ok' });
+      bootstrap(ws);
       return;
     }
     try {

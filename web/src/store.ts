@@ -70,6 +70,8 @@ interface AppState {
   /** Bumps when a conversation is opened or the draft is entered — NOT on
    * session-id rekeys. Drives scroll-state resets in the message list. */
   openSeq: number;
+  /** 'ok' unless the server demands a token (non-loopback binds). */
+  authState: 'ok' | 'required' | 'failed';
   setConnected: (connected: boolean) => void;
   handleServerMsg: (msg: ServerMsg) => void;
   /** Batched streaming deltas (one store update per animation frame). */
@@ -296,6 +298,9 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
     case 'file_suggestions':
       return { fileSuggestions: { reqId: msg.reqId, items: msg.items } };
 
+    case 'auth_ok':
+      return { authState: 'ok' };
+
     default:
       return {};
   }
@@ -330,6 +335,7 @@ export const useStore = create<AppState>((set, get) => ({
   modelPickerOpen: false,
   sidebarOpen: false,
   openSeq: 0,
+  authState: 'ok',
 
   setConnected: (connected) => set({ connected }),
 

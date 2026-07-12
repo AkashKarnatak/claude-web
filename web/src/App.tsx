@@ -9,9 +9,11 @@ import { ModeBar } from './components/ModeBar';
 import { PromptInput } from './components/PromptInput';
 import { Sidebar } from './components/Sidebar';
 import { StatusLine } from './components/StatusLine';
+import { Unlock } from './components/Unlock';
 
 export default function App() {
   const pendingPermissions = useStore((s) => s.permissions.length);
+  const authState = useStore((s) => s.authState);
 
   // Title-bar indicator while permission requests are waiting.
   useEffect(() => {
@@ -58,6 +60,10 @@ export default function App() {
       window.removeEventListener('focus', clearPermissionNotification);
     };
   }, []);
+
+  if (authState !== 'ok') {
+    return <Unlock />;
+  }
 
   return (
     <div className="app">
