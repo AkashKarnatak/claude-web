@@ -2,11 +2,11 @@
 // The store only understands the wire protocol — never raw engine events.
 
 import { create } from 'zustand';
-import type { ConversationMeta, ServerMsg, Usage } from '../../server/protocol';
+import type { ConversationMeta, PromptImage, ServerMsg, Usage } from '../../server/protocol';
 import { sampleVerb } from './spinnerVerbs';
 
 export type TranscriptItem =
-  | { kind: 'user'; id: string; text: string }
+  | { kind: 'user'; id: string; text: string; images?: PromptImage[] }
   | { kind: 'assistant'; id: string; markdown: string; streaming: boolean }
   | { kind: 'thinking'; id: string; text: string; streaming: boolean }
   | {
@@ -165,7 +165,12 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
       return state.session ? { session: { ...state.session, model: msg.model } } : {};
 
     case 'user_prompt':
-      return { items: [...state.items, { kind: 'user', id: msg.id, text: msg.text }] };
+      return {
+        items: [
+          ...state.items,
+          { kind: 'user', id: msg.id, text: msg.text, images: msg.images },
+        ],
+      };
 
     case 'assistant_start':
       return {

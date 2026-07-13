@@ -30,6 +30,11 @@ TUI-parity extras:
 - **Typeahead**: `/` at the start suggests the engine's slash commands; `@token`
   anywhere suggests project files (fuzzy-matched server-side); ↑/↓ navigate,
   Tab/Enter accept, Esc dismisses. ↑ on an empty input recalls prompt history.
+- **Image paste/drop**: Ctrl+V a screenshot or drag image files onto the page —
+  each becomes an `[Image #N]` token in the text plus a thumbnail chip (× to
+  remove), and is sent to the engine as an API image block so Claude can see it.
+  Oversized images are downscaled client-side to the API's 1568px optimum.
+  Images pasted in the terminal show up in web history too (and vice versa).
 
 ## Setup
 

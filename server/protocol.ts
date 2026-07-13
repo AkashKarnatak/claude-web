@@ -9,6 +9,13 @@ export interface Usage {
   cache_read_input_tokens?: number;
 }
 
+/** A pasted/dropped image attached to a prompt (base64, API-supported type).
+ * Order matters: the Nth image is what "[Image #N]" in the text refers to. */
+export interface PromptImage {
+  mediaType: string;
+  data: string;
+}
+
 export interface ConversationMeta {
   id: string;
   sessionId: string | null;
@@ -39,7 +46,7 @@ export type ServerMsg =
   // Authoritative model confirmation/revert, same contract as 'mode'.
   | { t: 'model'; model: string }
   // Echo of a user prompt, so transcripts/history include both sides.
-  | { t: 'user_prompt'; id: string; text: string }
+  | { t: 'user_prompt'; id: string; text: string; images?: PromptImage[] }
   // Assistant Markdown streaming.
   | { t: 'assistant_start'; id: string }
   | { t: 'assistant_delta'; id: string; text: string }
@@ -73,7 +80,7 @@ export type ServerMsg =
   | { t: 'auth_bad' };
 
 export type ClientMsg =
-  | { t: 'prompt'; text: string }
+  | { t: 'prompt'; text: string; images?: PromptImage[] }
   | {
       t: 'permission';
       reqId: string;

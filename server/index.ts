@@ -13,7 +13,7 @@ import type { PermissionMode } from '@anthropic-ai/claude-agent-sdk';
 import { AgentSession } from './agent.js';
 import { listConversations, readEngineTranscript } from './engineSessions.js';
 import { suggestFiles } from './files.js';
-import type { ClientMsg, ConversationMeta, ServerMsg } from './protocol.js';
+import type { ClientMsg, ConversationMeta, PromptImage, ServerMsg } from './protocol.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8787);
@@ -315,6 +315,25 @@ async function openConversation(ws: WebSocket, conversationId: string): Promise<
   // starts on the first prompt (or mode/model change).
 }
 
+// Image attachments: types the Anthropic API accepts, with sanity caps (the
+// client downscales before sending; these are a backstop, not the UX).
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const MAX_IMAGE_B64 = 10_000_000; // ~7.5MB decoded, per image
+const MAX_IMAGES = 20;
+
+function validateImages(images: PromptImage[] | undefined): string | null {
+  if (!images?.length) return null;
+  if (images.length > MAX_IMAGES) return `Too many images (max ${MAX_IMAGES})`;
+  for (const img of images) {
+    if (typeof img.data !== 'string' || typeof img.mediaType !== 'string') {
+      return 'Malformed image attachment';
+    }
+    if (!IMAGE_TYPES.has(img.mediaType)) return `Unsupported image type ${img.mediaType}`;
+    if (img.data.length > MAX_IMAGE_B64) return 'Image too large (max ~7MB)';
+  }
+  return null;
+}
+
 function activeConversationId(ws: WebSocket): string | null {
   for (const [id, subs] of subscribers) {
     if (subs.has(ws)) return id;
@@ -346,7 +365,12 @@ function handleClientMsg(ws: WebSocket, msg: ClientMsg): void {
       return;
 
     case 'prompt': {
-      if (!msg.text.trim()) return;
+      if (!msg.text.trim() && !msg.images?.length) return;
+      const imageError = validateImages(msg.images);
+      if (imageError) {
+        send(ws, { t: 'error', message: imageError });
+        return;
+      }
       let id = activeConversationId(ws);
       if (!id) {
         // First prompt of a draft: start a fresh engine session. The id is
@@ -356,7 +380,7 @@ function handleClientMsg(ws: WebSocket, msg: ClientMsg): void {
         const meta: ConversationMeta = {
           id,
           sessionId: null,
-          title: msg.text.slice(0, 60),
+          title: msg.text.trim().slice(0, 60) || '(image)',
           cwd: WORK_DIR,
           createdAt: now,
           updatedAt: now,
@@ -369,7 +393,7 @@ function handleClientMsg(ws: WebSocket, msg: ClientMsg): void {
       const model = pendingModels.get(ws);
       pendingModes.delete(ws);
       pendingModels.delete(ws);
-      ensureSession(id, mode, model).sendPrompt(msg.text);
+      ensureSession(id, mode, model).sendPrompt(msg.text, msg.images ?? []);
       return;
     }
 

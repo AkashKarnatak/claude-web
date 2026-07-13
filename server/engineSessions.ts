@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { listSessions } from '@anthropic-ai/claude-agent-sdk';
-import type { ConversationMeta, ServerMsg } from './protocol.js';
+import type { ConversationMeta, PromptImage, ServerMsg } from './protocol.js';
 
 export async function listConversations(dir: string): Promise<ConversationMeta[]> {
   const sessions = await listSessions({ dir });
@@ -83,7 +83,11 @@ function mapRecord(r: Record<string, any>, out: ServerMsg[]): void {
         .filter((b) => b.type === 'text')
         .map((b) => b.text as string)
         .join('\n\n');
-      pushUserPrompt(out, text);
+      // Pasted images (from the web UI or the TUI) are base64 image blocks.
+      const images: PromptImage[] = content
+        .filter((b) => b.type === 'image' && b.source?.type === 'base64')
+        .map((b) => ({ mediaType: b.source.media_type as string, data: b.source.data as string }));
+      pushUserPrompt(out, text, images);
       for (const block of content) {
         if (block.type !== 'tool_result') continue;
         out.push({
@@ -116,9 +120,15 @@ function mapRecord(r: Record<string, any>, out: ServerMsg[]): void {
   }
 }
 
-function pushUserPrompt(out: ServerMsg[], text: string): void {
+function pushUserPrompt(out: ServerMsg[], text: string, images: PromptImage[] = []): void {
   // Tagged content (<local-command-…>, <command-name>, <system-reminder>…)
   // is CLI plumbing the TUI hides too.
-  if (!text || text.startsWith('<')) return;
-  out.push({ t: 'user_prompt', id: randomUUID(), text });
+  if (text.startsWith('<')) return;
+  if (!text && images.length === 0) return;
+  out.push({
+    t: 'user_prompt',
+    id: randomUUID(),
+    text,
+    ...(images.length ? { images } : {}),
+  });
 }

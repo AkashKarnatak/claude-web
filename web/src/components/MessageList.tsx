@@ -15,10 +15,36 @@ import { ThinkingPanel } from './ThinkingPanel';
 import { ToolCard } from './ToolCard';
 import { UsageFooter } from './UsageFooter';
 
+/** Open a base64 image full-size (data: URLs are blocked as top-frame
+ * navigations, so go through a blob URL). */
+function openImage(mediaType: string, data: string): void {
+  const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: mediaType }));
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 const Item = memo(function Item({ item }: { item: TranscriptItem }) {
   switch (item.kind) {
     case 'user':
-      return <div className="user-message">{item.text}</div>;
+      return (
+        <div className="user-message">
+          {item.text}
+          {item.images && item.images.length > 0 && (
+            <div className="user-images">
+              {item.images.map((img, i) => (
+                <img
+                  key={i}
+                  src={`data:${img.mediaType};base64,${img.data}`}
+                  alt={`Image #${i + 1}`}
+                  title={`Image #${i + 1} — click to open`}
+                  onClick={() => openImage(img.mediaType, img.data)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      );
     case 'assistant':
       return <AssistantMessage markdown={item.markdown} streaming={item.streaming} />;
     case 'thinking':

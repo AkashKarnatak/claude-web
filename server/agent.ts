@@ -12,7 +12,7 @@ import {
   type SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import { PermissionBroker, type PendingPermission } from './permissions.js';
-import type { ServerMsg } from './protocol.js';
+import type { PromptImage, ServerMsg } from './protocol.js';
 
 export interface AgentSessionOptions {
   conversationId: string;
@@ -204,12 +204,34 @@ export class AgentSession {
     }
   }
 
-  sendPrompt(text: string): void {
-    this.emit({ t: 'user_prompt', id: randomUUID(), text });
+  sendPrompt(text: string, images: PromptImage[] = []): void {
+    this.emit({
+      t: 'user_prompt',
+      id: randomUUID(),
+      text,
+      ...(images.length ? { images } : {}),
+    });
     this.emit({ t: 'status', state: 'thinking' });
+    // Images go before the text as API image blocks; the text keeps its
+    // "[Image #N]" tokens, which refer to the Nth image by order — the same
+    // shape the TUI writes, so history replay round-trips cleanly.
+    const content =
+      images.length > 0
+        ? [
+            ...images.map((img) => ({
+              type: 'image' as const,
+              source: {
+                type: 'base64' as const,
+                media_type: img.mediaType as 'image/png',
+                data: img.data,
+              },
+            })),
+            ...(text.trim() ? [{ type: 'text' as const, text }] : []),
+          ]
+        : text;
     this.input.push({
       type: 'user',
-      message: { role: 'user', content: text },
+      message: { role: 'user', content },
       parent_tool_use_id: null,
     } as SDKUserMessage);
   }

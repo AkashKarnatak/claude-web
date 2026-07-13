@@ -3,13 +3,30 @@
 // - "@token" anywhere → file suggestions (fuzzy-matched server-side)
 // - Up/Down navigate, Tab/Enter accept, Esc dismiss
 // - Up on an empty input recalls prompt history
+// - Pasted/dropped images become "[Image #N]" tokens + attachment chips,
+//   like the TUI's Ctrl+V image paste
 
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type KeyboardEvent,
+} from 'react';
+import type { PromptImage } from '../../../server/protocol';
+import { fileToImage } from '../images';
 import { ensureNotifyPermission } from '../notify';
 import { useStore } from '../store';
 import { send } from '../ws';
 import { ModelPicker } from './ModelPicker';
 import { PermissionModal } from './PermissionModal';
+
+interface Attachment extends PromptImage {
+  /** The number in this attachment's "[Image #N]" token. Stable once
+   * assigned (no renumbering while composing); submit renumbers to 1..k. */
+  n: number;
+}
 
 interface SuggestionItem {
   value: string;
@@ -69,6 +86,9 @@ function tokenAt(text: string, caret: number): { start: number; end: number; tok
 export function PromptInput() {
   const [text, setText] = useState('');
   const [typeahead, setTypeahead] = useState<Typeahead | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const imageCounter = useRef(0);
   const connected = useStore((s) => s.connected);
   const slashCommands = useStore((s) => s.session?.slashCommands ?? NO_COMMANDS);
   const fileSuggestions = useStore((s) => s.fileSuggestions);
@@ -99,6 +119,92 @@ export function PromptInput() {
     // Scrollbar only once content exceeds the max height, never before.
     el.style.overflowY = el.scrollHeight > 220 ? 'auto' : 'hidden';
   }, [text]);
+
+  /** Attach image files: each gets a chip and a "[Image #N]" token inserted
+   * at the caret (or the end), mirroring the TUI's paste behavior. */
+  const addImages = async (files: File[]) => {
+    if (files.length === 0) return;
+    const el = textareaRef.current;
+    const caret = el && document.activeElement === el ? el.selectionStart : text.length;
+    const processed = (await Promise.all(files.map(fileToImage))).filter(
+      (img): img is PromptImage => img !== null,
+    );
+    if (processed.length === 0) return;
+    const withNumbers = processed.map((img) => ({ ...img, n: ++imageCounter.current }));
+    setAttachments((prev) => [...prev, ...withNumbers]);
+    const tokens = withNumbers.map((a) => `[Image #${a.n}]`).join(' ');
+    setText((t) => {
+      const at = Math.min(caret, t.length);
+      const before = t.slice(0, at);
+      const after = t.slice(at);
+      const lead = before && !/\s$/.test(before) ? ' ' : '';
+      const trail = after && !/^\s/.test(after) ? ' ' : '';
+      return before + lead + tokens + trail + after;
+    });
+    el?.focus();
+  };
+
+  // Keep a ref to the latest addImages so the window-level drop listeners
+  // (registered once) never call a stale closure.
+  const addImagesRef = useRef(addImages);
+  addImagesRef.current = addImages;
+
+  const removeAttachment = (n: number) => {
+    setAttachments((prev) => prev.filter((a) => a.n !== n));
+    // Strip the token (and one adjacent space) from the text.
+    setText((t) => t.replace(new RegExp(`\\[Image #${n}\\] ?`, 'g'), ''));
+  };
+
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = [...(e.clipboardData?.items ?? [])]
+      .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
+      .map((it) => it.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (files.length === 0) return; // normal text paste
+    e.preventDefault();
+    void addImages(files);
+  };
+
+  // Drag-and-drop anywhere in the window: show an overlay while a file drag
+  // is over the page, attach image files on drop.
+  useEffect(() => {
+    let depth = 0;
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth++;
+      setDragging(true);
+    };
+    const onDragOver = (e: DragEvent) => {
+      if (hasFiles(e)) e.preventDefault(); // required to allow the drop
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setDragging(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setDragging(false);
+      const files = [...(e.dataTransfer?.files ?? [])].filter((f) =>
+        f.type.startsWith('image/'),
+      );
+      void addImagesRef.current(files);
+    };
+    window.addEventListener('dragenter', onDragEnter);
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('dragleave', onDragLeave);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter);
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('dragleave', onDragLeave);
+      window.removeEventListener('drop', onDrop);
+    };
+  }, []);
 
   // Attach server file suggestions when they answer our latest request.
   useEffect(() => {
@@ -169,8 +275,8 @@ export function PromptInput() {
   };
 
   const submit = () => {
-    const trimmed = text.trim();
-    if (!trimmed || !connected) return;
+    let trimmed = text.trim();
+    if ((!trimmed && attachments.length === 0) || !connected) return;
     // User gesture: the right moment to ask for notification permission,
     // so permission-request alerts can reach an unfocused tab later.
     ensureNotifyPermission();
@@ -184,10 +290,27 @@ export function PromptInput() {
       } else {
         useStore.setState({ modelPickerOpen: true });
       }
+      setText('');
+      setTypeahead(null);
+      historyIdxRef.current = null;
+      return; // keep attachments — /model isn't a prompt
     } else {
-      send({ t: 'prompt', text: trimmed });
+      let images: PromptImage[] | undefined;
+      if (attachments.length > 0) {
+        // Composing numbers can have gaps after removals; the wire contract
+        // is "[Image #N] = the Nth image", so renumber tokens to 1..k here.
+        const renumber = new Map(attachments.map((a, i) => [a.n, i + 1]));
+        trimmed = trimmed.replace(/\[Image #(\d+)\]/g, (m, d: string) => {
+          const to = renumber.get(Number(d));
+          return to === undefined ? m : `[Image #${to}]`;
+        });
+        images = attachments.map(({ mediaType, data }) => ({ mediaType, data }));
+      }
+      send({ t: 'prompt', text: trimmed, ...(images ? { images } : {}) });
     }
     setText('');
+    setAttachments([]);
+    imageCounter.current = 0;
     setTypeahead(null);
     historyIdxRef.current = null;
   };
@@ -264,6 +387,30 @@ export function PromptInput() {
   };
 
   return (
+    <>
+      {dragging && (
+        <div className="drop-overlay">
+          <div className="drop-overlay-label">Drop images to attach</div>
+        </div>
+      )}
+      {attachments.length > 0 && (
+        <div className="attachments">
+          {attachments.map((a) => (
+            <div key={a.n} className="attachment-chip" title={`[Image #${a.n}]`}>
+              <img src={`data:${a.mediaType};base64,${a.data}`} alt={`Image #${a.n}`} />
+              <span className="attachment-label">#{a.n}</span>
+              <button
+                className="attachment-remove"
+                onClick={() => removeAttachment(a.n)}
+                title="Remove image"
+                aria-label={`Remove image #${a.n}`}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     <div className="prompt-input">
       <PermissionModal />
       <ModelPicker />
@@ -294,6 +441,7 @@ export function PromptInput() {
         value={text}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
+        onPaste={onPaste}
         onClick={() => {
           const el = textareaRef.current;
           if (el) refreshTypeahead(text, el.selectionStart);
@@ -313,12 +461,13 @@ export function PromptInput() {
       <button
         className="send-btn"
         onClick={submit}
-        disabled={!connected || !text.trim()}
+        disabled={!connected || (!text.trim() && attachments.length === 0)}
         title="Send"
         aria-label="Send"
       >
         ➤
       </button>
     </div>
+    </>
   );
 }
