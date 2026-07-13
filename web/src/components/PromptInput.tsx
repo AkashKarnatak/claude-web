@@ -77,6 +77,18 @@ export function PromptInput() {
   const debounceRef = useRef<number | null>(null);
   const historyIdxRef = useRef<number | null>(null);
 
+  // Focus the box as soon as it's usable so typing can start immediately.
+  // Skipped on touch devices (popping the keyboard on load is hostile, and
+  // mobile browsers block programmatic focus anyway). Once only — reconnects
+  // mid-session must not steal focus.
+  const focusedOnce = useRef(false);
+  useEffect(() => {
+    if (connected && !focusedOnce.current && !IS_TOUCH) {
+      focusedOnce.current = true;
+      textareaRef.current?.focus();
+    }
+  }, [connected]);
+
   // Auto-resize with wrapped lines, not just explicit newlines. Runs on any
   // text change (typing, history recall, typeahead accept, clear on send).
   useLayoutEffect(() => {
