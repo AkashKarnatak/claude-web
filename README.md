@@ -30,6 +30,11 @@ TUI-parity extras:
 - **Typeahead**: `/` at the start suggests the engine's slash commands; `@token`
   anywhere suggests project files (fuzzy-matched server-side); ↑/↓ navigate,
   Tab/Enter accept, Esc dismisses. ↑ on an empty input recalls prompt history.
+- **Conversation search**: Ctrl+K (or the magnifier in the header) opens a
+  centered search palette over all of the project's chats. Queries are regex
+  with smart-case (literal fallback), like ripgrep — which is also what powers
+  it: `rg` shortlists session files at disk speed, then only those are parsed
+  (and mtime-cached) for precise, highlighted user/assistant snippets.
 - **Image paste/drop**: Ctrl+V a screenshot or drag image files onto the page —
   each becomes an `[Image #N]` token in the text plus a thumbnail chip (× to
   remove), and is sent to the engine as an API image block so Claude can see it.

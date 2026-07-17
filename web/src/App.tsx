@@ -7,6 +7,7 @@ import { Header } from './components/Header';
 import { MessageList } from './components/MessageList';
 import { ModeBar } from './components/ModeBar';
 import { PromptInput } from './components/PromptInput';
+import { SearchModal } from './components/SearchModal';
 import { Sidebar } from './components/Sidebar';
 import { StatusLine } from './components/StatusLine';
 import { Unlock } from './components/Unlock';
@@ -41,12 +42,22 @@ export default function App() {
         useStore.setState((s) => ({ sidebarOpen: !s.sidebarOpen }));
         return;
       }
+      // Ctrl/Cmd+K opens conversation search.
+      if (e.key === 'k' && (e.ctrlKey || e.metaKey) && !e.altKey) {
+        e.preventDefault();
+        useStore.setState({ searchOpen: true });
+        return;
+      }
       // Esc interrupts the running turn (typeahead/modal Esc is handled and
       // stopped before it reaches here).
       if (e.key === 'Escape') {
-        const { status, permissions, modelPickerOpen } = useStore.getState();
+        const { status, permissions, modelPickerOpen, searchOpen } = useStore.getState();
         if (modelPickerOpen) {
           useStore.setState({ modelPickerOpen: false });
+          return;
+        }
+        if (searchOpen) {
+          useStore.setState({ searchOpen: false });
           return;
         }
         if (permissions.length === 0 && status !== 'idle') {
@@ -67,6 +78,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <SearchModal />
       <Sidebar />
       <main className="main">
         <Header />

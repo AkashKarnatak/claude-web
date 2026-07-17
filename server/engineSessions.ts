@@ -25,7 +25,7 @@ export async function listConversations(dir: string): Promise<ConversationMeta[]
 const PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects');
 
 /** Locate a session file without relying on the CLI's path-munging scheme. */
-function findSessionFile(sessionId: string): string | null {
+export function findSessionFile(sessionId: string): string | null {
   const name = sessionId.replace(/[^a-zA-Z0-9-]/g, '');
   let dirs: string[];
   try {

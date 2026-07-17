@@ -1,6 +1,6 @@
 import { useStore } from '../store';
 import { send } from '../ws';
-import { PanelLeftIcon } from './icons';
+import { PanelLeftIcon, SearchIcon } from './icons';
 
 export function Sidebar() {
   const conversations = useStore((s) => s.conversations);
@@ -27,14 +27,24 @@ export function Sidebar() {
       <div className="sidebar-inner">
         <div className="sidebar-head">
           <span className="sidebar-title">Chats</span>
-          <button
-            className="icon-btn"
-            title="Close sidebar (Ctrl+B)"
-            onClick={() => useStore.setState({ sidebarOpen: false })}
-            tabIndex={open ? 0 : -1}
-          >
-            <PanelLeftIcon />
-          </button>
+          <div className="sidebar-head-actions">
+            <button
+              className="icon-btn"
+              title="Search conversations (Ctrl+K)"
+              onClick={() => useStore.setState({ searchOpen: true })}
+              tabIndex={open ? 0 : -1}
+            >
+              <SearchIcon />
+            </button>
+            <button
+              className="icon-btn"
+              title="Close sidebar (Ctrl+B)"
+              onClick={() => useStore.setState({ sidebarOpen: false })}
+              tabIndex={open ? 0 : -1}
+            >
+              <PanelLeftIcon />
+            </button>
+          </div>
         </div>
         <button
           className="btn new-chat"

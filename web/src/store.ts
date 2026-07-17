@@ -2,7 +2,13 @@
 // The store only understands the wire protocol — never raw engine events.
 
 import { create } from 'zustand';
-import type { ConversationMeta, PromptImage, ServerMsg, Usage } from '../../server/protocol';
+import type {
+  ConversationMeta,
+  PromptImage,
+  SearchResult,
+  ServerMsg,
+  Usage,
+} from '../../server/protocol';
 import { sampleVerb } from './spinnerVerbs';
 
 export type TranscriptItem =
@@ -66,6 +72,8 @@ interface AppState {
   currentTool: string | null;
   fileSuggestions: { reqId: string; items: string[] } | null;
   modelPickerOpen: boolean;
+  searchOpen: boolean;
+  searchResults: { reqId: string; items: SearchResult[] } | null;
   sidebarOpen: boolean;
   /** Bumps when a conversation is opened or the draft is entered — NOT on
    * session-id rekeys. Drives scroll-state resets in the message list. */
@@ -303,6 +311,9 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
     case 'file_suggestions':
       return { fileSuggestions: { reqId: msg.reqId, items: msg.items } };
 
+    case 'search_results':
+      return { searchResults: { reqId: msg.reqId, items: msg.items } };
+
     case 'auth_ok':
       return { authState: 'ok' };
 
@@ -338,6 +349,8 @@ export const useStore = create<AppState>((set, get) => ({
   currentTool: null,
   fileSuggestions: null,
   modelPickerOpen: false,
+  searchOpen: false,
+  searchResults: null,
   sidebarOpen: false,
   openSeq: 0,
   authState: 'ok',

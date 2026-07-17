@@ -25,6 +25,24 @@ export interface ConversationMeta {
   updatedAt: number;
 }
 
+// Global conversation search (ripgrep-style match list).
+export interface SearchSnippet {
+  role: 'user' | 'assistant';
+  /** Context window around the match ("…" ellipses included). */
+  text: string;
+  /** [start, end) highlight ranges into `text`, non-overlapping, sorted. */
+  ranges: Array<[number, number]>;
+}
+
+export interface SearchResult {
+  /** Conversation (= engine session) id, openable via open_conversation. */
+  id: string;
+  title: string;
+  updatedAt: number;
+  matchCount: number;
+  snippets: SearchSnippet[];
+}
+
 export type ServerMsg =
   // Session bootstrap (from the engine's system/init event).
   | {
@@ -69,6 +87,8 @@ export type ServerMsg =
   | { t: 'tokens'; output: number }
   // @-mention file completion results.
   | { t: 'file_suggestions'; reqId: string; items: string[] }
+  // Global conversation search results.
+  | { t: 'search_results'; reqId: string; items: SearchResult[] }
   // Conversation management (UI sidebar; ARCHITECTURE.md §9 persistence).
   | { t: 'conversations'; items: ConversationMeta[] }
   | { t: 'history'; conversationId: string; meta: ConversationMeta; messages: ServerMsg[] }
@@ -95,5 +115,6 @@ export type ClientMsg =
   | { t: 'open_conversation'; conversationId: string }
   | { t: 'list_conversations' }
   | { t: 'suggest_files'; reqId: string; query: string }
+  | { t: 'search'; reqId: string; query: string }
   | { t: 'auth'; token: string };
 

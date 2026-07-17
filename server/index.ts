@@ -13,6 +13,7 @@ import type { PermissionMode } from '@anthropic-ai/claude-agent-sdk';
 import { AgentSession } from './agent.js';
 import { listConversations, readEngineTranscript } from './engineSessions.js';
 import { suggestFiles } from './files.js';
+import { searchConversations } from './search.js';
 import type { ClientMsg, ConversationMeta, PromptImage, ServerMsg } from './protocol.js';
 
 const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
@@ -443,6 +444,15 @@ function handleClientMsg(ws: WebSocket, msg: ClientMsg): void {
       const id = activeConversationId(ws);
       const cwd = (id && getMeta(id)?.cwd) || WORK_DIR;
       send(ws, { t: 'file_suggestions', reqId: msg.reqId, items: suggestFiles(cwd, msg.query) });
+      return;
+    }
+
+    case 'search': {
+      void searchConversations(WORK_DIR, msg.query)
+        .then((items) => send(ws, { t: 'search_results', reqId: msg.reqId, items }))
+        .catch((err) =>
+          send(ws, { t: 'error', message: `Search failed: ${err instanceof Error ? err.message : err}` }),
+        );
       return;
     }
   }
