@@ -1304,6 +1304,161 @@ pre.diff-del {
   margin-top: 10px;
 }
 
+/* ---- AskUserQuestion answer picker ---- */
+
+.question-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.question-chip {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+
+.question-progress {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  font-family: var(--mono);
+}
+
+.question-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.question-dot.answered {
+  background: var(--accent);
+  opacity: 0.45;
+}
+
+.question-dot.current {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.question-text {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.question-options {
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+
+.question-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13.5px;
+}
+
+.question-option.selected {
+  background: var(--accent-soft);
+}
+
+/* A previously made choice, visible when navigating back to a question. */
+.question-option.chosen .question-label {
+  color: var(--accent);
+}
+
+.review-row .question-label {
+  color: var(--accent);
+}
+
+.review-row:hover {
+  background: var(--bg-inset);
+}
+
+.question-mark {
+  flex-shrink: 0;
+  width: 16px;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.question-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.question-label {
+  font-weight: 600;
+}
+
+.question-desc {
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.question-other-input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 5px 9px;
+  margin-top: 4px;
+  outline: none;
+}
+
+.question-other.selected .question-other-input {
+  border-color: var(--accent);
+}
+
+.question-preview {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg-inset);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0 0;
+  max-height: 26vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.question-actions {
+  align-items: center;
+}
+
+.question-hint {
+  margin-right: auto;
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+
 /* ---- model picker (popover above the chat input) ---- */
 
 .model-popover {

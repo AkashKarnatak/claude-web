@@ -16,8 +16,9 @@ export function notifyPermissionRequest(tool: string, detail: string): void {
   if (document.hasFocus()) return; // user is already looking at us
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   current?.close();
-  current = new Notification('Claude needs permission', {
-    body: `${tool}: ${detail}`.slice(0, 120),
+  const isQuestion = tool === 'AskUserQuestion';
+  current = new Notification(isQuestion ? 'Claude has a question' : 'Claude needs permission', {
+    body: (isQuestion ? detail : `${tool}: ${detail}`).slice(0, 120),
     tag: 'claude-web-permission', // replaces rather than stacks
     requireInteraction: true, // stays on screen until addressed (where supported)
   });

@@ -30,7 +30,13 @@ TUI-parity extras:
 - **Typeahead**: `/` at the start suggests the engine's slash commands; `@token`
   anywhere suggests project files (fuzzy-matched server-side); ↑/↓ navigate,
   Tab/Enter accept, Esc dismisses. ↑ on an empty input recalls prompt history.
-- **Conversation search**: Ctrl+K (or the magnifier in the header) opens a
+- **Interactive questions**: when Claude uses `AskUserQuestion`, the prompt
+  above the input renders the actual question(s) — options with descriptions,
+  multi-select checkboxes, previews, and a free-text "Other" — instead of a
+  bare Allow/Deny. Arrow keys + Enter, number keys for quick select, Esc
+  dismisses. Answers flow back through the permission round-trip
+  (`updatedInput.answers`), the same contract the TUI picker fulfills.
+- **Conversation search**: Ctrl+K (or the magnifier in the sidebar) opens a
   centered search palette over all of the project's chats. Queries are regex
   with smart-case (literal fallback), like ripgrep — which is also what powers
   it: `rg` shortlists session files at disk speed, then only those are parsed

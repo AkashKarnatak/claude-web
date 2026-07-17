@@ -1,14 +1,22 @@
 // In-browser approval prompt for the canUseTool round-trip
 // (ARCHITECTURE.md §8) — anchored above the chat input like the TUI's
 // footer prompts, not a centered modal. Shows the first pending request.
+// AskUserQuestion gets an interactive answer picker instead of Allow/Deny.
 
 import { useStore } from '../store';
 import { send } from '../ws';
+import { parseQuestions, QuestionPrompt } from './QuestionPrompt';
 
 export function PermissionModal() {
   const permissions = useStore((s) => s.permissions);
   const req = permissions[0];
   if (!req) return null;
+
+  if (req.tool === 'AskUserQuestion') {
+    const questions = parseQuestions(req.input);
+    // keyed by reqId so answer state never leaks across requests
+    if (questions) return <QuestionPrompt key={req.reqId} req={req} questions={questions} />;
+  }
 
   const decide = (decision: 'allow' | 'deny') =>
     send({ t: 'permission', reqId: req.reqId, decision });

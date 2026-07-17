@@ -88,14 +88,7 @@ function dispatch(msg: ServerMsg): void {
   useStore.getState().handleServerMsg(msg);
 
   if (msg.t === 'permission_request') {
-    const input = msg.input as Record<string, unknown> | null;
-    const detail =
-      input && typeof input.command === 'string'
-        ? input.command
-        : input && typeof input.file_path === 'string'
-          ? input.file_path
-          : JSON.stringify(msg.input ?? {});
-    notifyPermissionRequest(msg.tool, detail);
+    notifyPermissionRequest(msg.tool, permissionDetail(msg.tool, msg.input));
   } else if (msg.t === 'permission_resolved') {
     const remaining = useStore.getState().permissions;
     if (remaining.length === 0) {
@@ -103,13 +96,21 @@ function dispatch(msg: ServerMsg): void {
     } else {
       // Surface the next queued request to a still-unfocused user.
       const next = remaining[0];
-      const input = next.input as Record<string, unknown> | null;
-      notifyPermissionRequest(
-        next.tool,
-        input && typeof input.command === 'string' ? input.command : JSON.stringify(next.input ?? {}),
-      );
+      notifyPermissionRequest(next.tool, permissionDetail(next.tool, next.input));
     }
   }
+}
+
+/** Short human-readable line for permission notifications. */
+function permissionDetail(tool: string, rawInput: unknown): string {
+  const input = rawInput as Record<string, unknown> | null;
+  if (tool === 'AskUserQuestion') {
+    const first = (input?.questions as Array<{ question?: string }> | undefined)?.[0];
+    if (first?.question) return first.question;
+  }
+  if (input && typeof input.command === 'string') return input.command;
+  if (input && typeof input.file_path === 'string') return input.file_path;
+  return JSON.stringify(rawInput ?? {});
 }
 
 export function connect(): void {
