@@ -150,12 +150,14 @@ body {
 }
 
 .conversation-item {
+  display: block;
   flex-shrink: 0;
   text-align: left;
   padding: 8px 10px;
   border: none;
   background: transparent;
   color: var(--text);
+  text-decoration: none;
   border-radius: 8px;
   cursor: pointer;
   font-size: 13.5px;

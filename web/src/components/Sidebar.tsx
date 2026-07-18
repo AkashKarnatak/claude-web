@@ -1,3 +1,4 @@
+import { chatHref, pushChatUrl } from '../router';
 import { useStore } from '../store';
 import { send } from '../ws';
 import { PanelLeftIcon, SearchIcon } from './icons';
@@ -49,6 +50,9 @@ export function Sidebar() {
         <button
           className="btn new-chat"
           onClick={() => {
+            // Reset the URL first: the draft the server answers with must
+            // not re-open the chat named by the old URL.
+            pushChatUrl(null);
             send({ t: 'new_conversation' });
             closeIfOverlay();
           }}
@@ -58,10 +62,16 @@ export function Sidebar() {
         </button>
         <nav className="conversation-list">
           {conversations.map((c) => (
-            <button
+            // Real links, so middle/ctrl-click opens the chat in a new tab;
+            // plain clicks navigate in place over the existing socket.
+            <a
               key={c.id}
+              href={chatHref(c.id)}
               className={`conversation-item${c.id === activeId ? ' active' : ''}`}
-              onClick={() => {
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                e.preventDefault();
+                pushChatUrl(c.id);
                 send({ t: 'open_conversation', conversationId: c.id });
                 closeIfOverlay();
               }}
@@ -69,7 +79,7 @@ export function Sidebar() {
               tabIndex={open ? 0 : -1}
             >
               {c.title}
-            </button>
+            </a>
           ))}
         </nav>
       </div>

@@ -4,6 +4,7 @@
 
 import type { ClientMsg, ServerMsg } from '../../server/protocol';
 import { clearPermissionNotification, notifyPermissionRequest } from './notify';
+import { pathConversationId, replaceChatUrl } from './router';
 import { useStore } from './store';
 
 let ws: WebSocket | null = null;
@@ -86,6 +87,26 @@ function dispatch(msg: ServerMsg): void {
   }
   flushDeltas();
   useStore.getState().handleServerMsg(msg);
+
+  // ---- URL routing: keep /c/<id> in sync with the open conversation ----
+  if (msg.t === 'draft') {
+    // Bootstrap/reconnect lands on a draft; when the URL names a chat
+    // (deep link, new tab, refresh), open it instead. "+ New chat" resets
+    // the URL to / before requesting, so this never loops.
+    const urlId = pathConversationId();
+    if (urlId) send({ t: 'open_conversation', conversationId: urlId });
+  } else if (msg.t === 'history') {
+    // A conversation opened (click, deep link, or the first prompt of a
+    // draft minting one) — make the URL reflect it.
+    replaceChatUrl(msg.conversationId);
+  } else if (msg.t === 'session' && msg.conversationId) {
+    // Resume rekeys the conversation to the engine's session id mid-turn.
+    const { activeId } = useStore.getState();
+    if (activeId === msg.conversationId) replaceChatUrl(msg.conversationId);
+  } else if (msg.t === 'error' && msg.message.startsWith('Unknown conversation')) {
+    // Stale deep link — back to the draft URL so reconnects don't retry it.
+    replaceChatUrl(null);
+  }
 
   if (msg.t === 'permission_request') {
     notifyPermissionRequest(msg.tool, permissionDetail(msg.tool, msg.input));

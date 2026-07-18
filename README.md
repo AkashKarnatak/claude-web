@@ -30,6 +30,10 @@ TUI-parity extras:
 - **Typeahead**: `/` at the start suggests the engine's slash commands; `@token`
   anywhere suggests project files (fuzzy-matched server-side); ↑/↓ navigate,
   Tab/Enter accept, Esc dismisses. ↑ on an empty input recalls prompt history.
+- **Per-chat URLs**: every conversation is a page at `/c/<id>` — sidebar
+  entries are real links (middle/ctrl-click opens a chat in a new tab),
+  deep links and refreshes restore the chat, Back/Forward navigate between
+  chats, and the tab title shows the conversation. New chats live at `/`.
 - **Background tasks panel**: when Claude fans out subagents (Task tool, deep
   research, workflows) or backgrounds a shell, a live strip above the status
   line shows them — expandable to per-task rows with a spinner/status icon,

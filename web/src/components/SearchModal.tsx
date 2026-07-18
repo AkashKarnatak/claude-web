@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { SearchSnippet } from '../../../server/protocol';
+import { pushChatUrl } from '../router';
 import { useStore } from '../store';
 import { send } from '../ws';
 
@@ -83,6 +84,7 @@ export function SearchModal() {
   const close = () => useStore.setState({ searchOpen: false });
 
   const openResult = (id: string) => {
+    pushChatUrl(id);
     send({ t: 'open_conversation', conversationId: id });
     close();
   };
