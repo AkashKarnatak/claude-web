@@ -304,12 +304,15 @@ async function openConversation(ws: WebSocket, conversationId: string): Promise<
     const sessionModel = (live && live.modelId) || parsed.lastModel;
     if (sessionModel) send(ws, { t: 'model', model: sessionModel });
   }
-  // Re-surface pending permission prompts to the (re)connecting client.
+  // Re-surface pending permission prompts and the current background-task
+  // set to the (re)connecting client.
   const session = liveSessions.get(conversationId);
   if (session) {
     for (const req of session.permissions.list()) {
       send(ws, { t: 'permission_request', reqId: req.reqId, tool: req.tool, input: req.input });
     }
+    const tasks = session.tasksSnapshot;
+    if (tasks.length > 0) send(ws, { t: 'tasks', items: tasks });
   }
   // NOTE: no eager engine boot here — resuming forks a new engine session,
   // so merely browsing history must not mint session files. The engine

@@ -10,6 +10,7 @@ import { PromptInput } from './components/PromptInput';
 import { SearchModal } from './components/SearchModal';
 import { Sidebar } from './components/Sidebar';
 import { StatusLine } from './components/StatusLine';
+import { TasksPanel } from './components/TasksPanel';
 import { Unlock } from './components/Unlock';
 
 export default function App() {
@@ -84,6 +85,7 @@ export default function App() {
         <Header />
         <MessageList />
         <div className="composer">
+          <TasksPanel />
           <StatusLine />
           <PromptInput />
           <ModeBar />

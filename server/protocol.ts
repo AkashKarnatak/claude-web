@@ -25,6 +25,28 @@ export interface ConversationMeta {
   updatedAt: number;
 }
 
+// A background task or fanned-out subagent (Task tool, workflow, background
+// shell) as shown in the tasks panel.
+export interface TaskItem {
+  taskId: string;
+  /** Engine task type: 'local_bash', 'local_workflow', subagent runs, … */
+  taskType?: string;
+  /** Subagent type for Task-tool agents (e.g. 'general-purpose'). */
+  subagentType?: string;
+  workflowName?: string;
+  description: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'killed' | 'paused' | 'stopped';
+  /** Server epoch ms; the client ticks elapsed off this. */
+  startedAt: number;
+  endedAt?: number;
+  /** Latest progress/final summary line. */
+  summary?: string;
+  lastToolName?: string;
+  totalTokens?: number;
+  toolUses?: number;
+  error?: string;
+}
+
 // Global conversation search (ripgrep-style match list).
 export interface SearchSnippet {
   role: 'user' | 'assistant';
@@ -85,6 +107,8 @@ export type ServerMsg =
   | { t: 'status'; state: 'idle' | 'thinking' | 'running_tool' }
   // Cumulative output tokens for the in-flight turn (spinner status line).
   | { t: 'tokens'; output: number }
+  // Background tasks / subagents snapshot (full replace on every change).
+  | { t: 'tasks'; items: TaskItem[] }
   // @-mention file completion results.
   | { t: 'file_suggestions'; reqId: string; items: string[] }
   // Global conversation search results.

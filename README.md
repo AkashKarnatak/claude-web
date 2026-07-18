@@ -30,6 +30,13 @@ TUI-parity extras:
 - **Typeahead**: `/` at the start suggests the engine's slash commands; `@token`
   anywhere suggests project files (fuzzy-matched server-side); ↑/↓ navigate,
   Tab/Enter accept, Esc dismisses. ↑ on an empty input recalls prompt history.
+- **Background tasks panel**: when Claude fans out subagents (Task tool, deep
+  research, workflows) or backgrounds a shell, a live strip above the status
+  line shows them — expandable to per-task rows with a spinner/status icon,
+  agent-type badge, description, ticking elapsed time, token and tool-use
+  counters, the tool each agent is currently running, and final summaries.
+  Fed by the engine's task_started/progress/updated/notification events;
+  reconnecting clients get the current snapshot.
 - **Interactive questions**: when Claude uses `AskUserQuestion`, the prompt
   above the input renders the actual question(s) — options with descriptions,
   multi-select checkboxes, previews, and a free-text "Other" — instead of a

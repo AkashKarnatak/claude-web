@@ -12,7 +12,7 @@ import {
   type SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import { PermissionBroker, type PendingPermission } from './permissions.js';
-import type { PromptImage, ServerMsg } from './protocol.js';
+import type { PromptImage, ServerMsg, TaskItem } from './protocol.js';
 
 export interface AgentSessionOptions {
   conversationId: string;
@@ -126,6 +126,16 @@ export class AgentSession {
   // messages; message_delta usage is cumulative per message).
   private turnOutputTokens = 0;
   private currentMessageTokens = 0;
+
+  // Background tasks / fanned-out subagents (Task tool, workflows, background
+  // shells), keyed by the engine's task_id. Every change broadcasts a full
+  // snapshot; reconnecting clients get the same snapshot on open.
+  private tasks = new Map<string, TaskItem>();
+  // tool_use_id → task_id, so tool_progress can find its task.
+  private taskByToolUse = new Map<string, string>();
+  // Members of the engine's background set (background_tasks_changed has
+  // REPLACE semantics for exactly this subset — subagents aren't in it).
+  private backgroundTaskIds = new Set<string>();
 
   constructor(opts: AgentSessionOptions) {
     this.conversationId = opts.conversationId;
@@ -320,8 +330,25 @@ export class AgentSession {
             models: this.models,
             bypassAvailable: this.allowBypass,
           });
+        } else {
+          this.handleTaskMessage(message as unknown as Record<string, any>);
         }
         return;
+
+      case 'tool_progress': {
+        // Long-running tool heartbeat; when it belongs to a task, surface the
+        // tool name on that task's panel row.
+        const ev = message as unknown as Record<string, any>;
+        const taskId =
+          (ev.task_id as string | undefined) ??
+          (ev.parent_tool_use_id ? this.taskByToolUse.get(ev.parent_tool_use_id) : undefined);
+        const task = taskId ? this.tasks.get(taskId) : undefined;
+        if (task && task.lastToolName !== ev.tool_name) {
+          task.lastToolName = ev.tool_name;
+          this.emitTasks();
+        }
+        return;
+      }
 
       case 'stream_event':
         // Subagent (Task tool) streams carry parent_tool_use_id — keep them
@@ -382,6 +409,127 @@ export class AgentSession {
       default:
         // Other engine message types (hooks, tasks, notifications…) are not
         // part of the wire protocol.
+        return;
+    }
+  }
+
+  // ---- background tasks / subagents (system task_* + background_tasks_changed) ----
+
+  /** Current tasks, running first then most recent — sent to (re)connecting
+   * clients so the panel is correct without replaying events. */
+  get tasksSnapshot(): TaskItem[] {
+    return [...this.tasks.values()].sort((a, b) => {
+      const aDone = a.status !== 'running' && a.status !== 'pending' ? 1 : 0;
+      const bDone = b.status !== 'running' && b.status !== 'pending' ? 1 : 0;
+      return aDone - bDone || b.startedAt - a.startedAt;
+    });
+  }
+
+  private emitTasks(): void {
+    // Finished tasks linger briefly for the panel, then drop off.
+    const cutoff = Date.now() - 5 * 60_000;
+    for (const [id, task] of this.tasks) {
+      if (task.endedAt && task.endedAt < cutoff) this.tasks.delete(id);
+    }
+    this.emit({ t: 'tasks', items: this.tasksSnapshot });
+  }
+
+  private handleTaskMessage(msg: Record<string, any>): void {
+    switch (msg.subtype) {
+      case 'task_started': {
+        const task: TaskItem = {
+          taskId: msg.task_id,
+          taskType: msg.task_type,
+          subagentType: msg.subagent_type,
+          workflowName: msg.workflow_name,
+          description: msg.description || msg.prompt?.slice(0, 80) || 'task',
+          status: 'running',
+          startedAt: Date.now(),
+        };
+        this.tasks.set(task.taskId, task);
+        if (msg.tool_use_id) this.taskByToolUse.set(msg.tool_use_id, task.taskId);
+        this.emitTasks();
+        return;
+      }
+
+      case 'task_progress': {
+        const task = this.tasks.get(msg.task_id);
+        if (!task) return;
+        if (msg.description) task.description = msg.description;
+        if (msg.subagent_type) task.subagentType = msg.subagent_type;
+        if (msg.summary) task.summary = msg.summary;
+        if (msg.last_tool_name) task.lastToolName = msg.last_tool_name;
+        if (msg.usage) {
+          task.totalTokens = msg.usage.total_tokens;
+          task.toolUses = msg.usage.tool_uses;
+        }
+        this.emitTasks();
+        return;
+      }
+
+      case 'task_updated': {
+        const task = this.tasks.get(msg.task_id);
+        if (!task || !msg.patch) return;
+        const patch = msg.patch;
+        if (patch.status) task.status = patch.status;
+        if (patch.description) task.description = patch.description;
+        if (patch.error) task.error = patch.error;
+        if (patch.end_time || (patch.status && patch.status !== 'running' && patch.status !== 'pending' && patch.status !== 'paused')) {
+          task.endedAt = patch.end_time ?? Date.now();
+        }
+        this.emitTasks();
+        return;
+      }
+
+      case 'task_notification': {
+        const task = this.tasks.get(msg.task_id);
+        if (!task) return;
+        task.status = msg.status; // completed | failed | stopped
+        task.endedAt = Date.now();
+        if (msg.summary) task.summary = msg.summary;
+        if (msg.usage) {
+          task.totalTokens = msg.usage.total_tokens;
+          task.toolUses = msg.usage.tool_uses;
+        }
+        this.emitTasks();
+        return;
+      }
+
+      case 'background_tasks_changed': {
+        // REPLACE semantics, but only for the background subset: ensure
+        // listed tasks exist, and finish previously-listed ones that vanished
+        // without a task_updated/notification. Subagents are never in this
+        // list, so they must not be reconciled against it.
+        const listed = new Set<string>();
+        for (const bg of msg.tasks ?? []) {
+          listed.add(bg.task_id);
+          const existing = this.tasks.get(bg.task_id);
+          if (existing) {
+            if (bg.description) existing.description = bg.description;
+          } else {
+            this.tasks.set(bg.task_id, {
+              taskId: bg.task_id,
+              taskType: bg.task_type,
+              description: bg.description || bg.task_type || 'background task',
+              status: 'running',
+              startedAt: Date.now(),
+            });
+          }
+        }
+        for (const id of this.backgroundTaskIds) {
+          if (listed.has(id)) continue;
+          const task = this.tasks.get(id);
+          if (task && (task.status === 'running' || task.status === 'pending')) {
+            task.status = 'completed';
+            task.endedAt = Date.now();
+          }
+        }
+        this.backgroundTaskIds = listed;
+        this.emitTasks();
+        return;
+      }
+
+      default:
         return;
     }
   }

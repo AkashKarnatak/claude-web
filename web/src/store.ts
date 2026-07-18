@@ -7,6 +7,7 @@ import type {
   PromptImage,
   SearchResult,
   ServerMsg,
+  TaskItem,
   Usage,
 } from '../../server/protocol';
 import { sampleVerb } from './spinnerVerbs';
@@ -71,6 +72,9 @@ interface AppState {
   activity: Activity;
   currentTool: string | null;
   fileSuggestions: { reqId: string; items: string[] } | null;
+  /** Background tasks / subagents for the open conversation's live session. */
+  tasks: TaskItem[];
+  tasksExpanded: boolean;
   modelPickerOpen: boolean;
   searchOpen: boolean;
   searchResults: { reqId: string; items: SearchResult[] } | null;
@@ -103,6 +107,7 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
         turn: null,
         currentTool: null,
         fileSuggestions: null,
+        tasks: [],
       };
 
     case 'history': {
@@ -122,9 +127,11 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
       for (const m of msg.messages) {
         acc = { ...acc, ...applyMsg(acc, m) };
       }
-      // History replay renders everything as settled.
+      // History replay renders everything as settled. A live session's
+      // task snapshot arrives separately right after the history.
       return {
         ...acc,
+        tasks: [],
         openSeq: state.openSeq + 1,
         items: acc.items.map((it) =>
           (it.kind === 'assistant' || it.kind === 'thinking') && it.streaming
@@ -314,6 +321,9 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
     case 'search_results':
       return { searchResults: { reqId: msg.reqId, items: msg.items } };
 
+    case 'tasks':
+      return { tasks: msg.items };
+
     case 'auth_ok':
       return { authState: 'ok' };
 
@@ -348,6 +358,8 @@ export const useStore = create<AppState>((set, get) => ({
   activity: 'requesting',
   currentTool: null,
   fileSuggestions: null,
+  tasks: [],
+  tasksExpanded: false,
   modelPickerOpen: false,
   searchOpen: false,
   searchResults: null,
