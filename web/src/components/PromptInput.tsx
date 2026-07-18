@@ -368,6 +368,19 @@ export function PromptInput() {
       }
     }
 
+    // Alt+Enter inserts a newline like Shift+Enter — but browsers don't do
+    // it natively, so insert at the caret ourselves.
+    if (e.key === 'Enter' && e.altKey) {
+      e.preventDefault();
+      const el = textareaRef.current;
+      const start = el?.selectionStart ?? text.length;
+      const end = el?.selectionEnd ?? start;
+      setText(text.slice(0, start) + '\n' + text.slice(end));
+      historyIdxRef.current = null;
+      requestAnimationFrame(() => el?.setSelectionRange(start + 1, start + 1));
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       if (IS_TOUCH) return; // newline; sending is the button's job
       e.preventDefault();
