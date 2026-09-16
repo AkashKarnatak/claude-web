@@ -190,7 +190,7 @@ export class AgentSession {
           value: m.value,
           label: m.displayName,
           description: (m as { description?: string }).description ?? '',
-          // Canonical wire id (e.g. 'opus[1m]' → 'claude-opus-4-8[1m]') so the
+          // Canonical wire id (e.g. 'opus[1m]' → 'claude-opus-5[1m]') so the
           // client can match the init event's full model id to a row.
           resolvedModel: m.resolvedModel,
         }));

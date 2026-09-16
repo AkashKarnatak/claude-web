@@ -1,5 +1,5 @@
 // Map the engine's model id (alias like 'sonnet' or full wire id like
-// 'claude-opus-4-8[1m]') to the human-readable name from the model list.
+// 'claude-fable-5-1[1m]') to the human-readable name from the model list.
 
 import type { SessionInfo } from './store';
 
