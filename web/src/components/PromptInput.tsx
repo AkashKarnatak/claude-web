@@ -257,6 +257,33 @@ export function PromptInput() {
     refreshTypeahead(value, caret);
   };
 
+  // "/" pressed anywhere outside a text field focuses the box, like the TUI
+  // where the prompt always has the keyboard. The keystroke itself is
+  // swallowed: it only moves focus (caret at the end of any draft), it never
+  // types a "/".
+  useEffect(() => {
+    const isEditable = (t: EventTarget | null): boolean => {
+      if (!(t instanceof HTMLElement)) return false;
+      if (t.isContentEditable) return true;
+      const tag = t.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    };
+    const onKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isEditable(e.target)) return; // typing a real "/" somewhere else
+      // Popovers own the keyboard while they're up.
+      const { permissions, searchOpen, modelPickerOpen } = useStore.getState();
+      if (permissions.length > 0 || searchOpen || modelPickerOpen) return;
+      e.preventDefault();
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   const accept = (ta: Typeahead) => {
     const item = ta.items[ta.selected].value;
     const replacement = ta.type === 'command' ? `/${item} ` : `@${item} `;
