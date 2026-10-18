@@ -1651,3 +1651,72 @@ pre.diff-del {
   color: var(--text-dim);
   font-size: 12.5px;
 }
+
+/* Homepage paper shortcut: one pill-shaped input under the welcome text. */
+.paper-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(520px, 100%);
+  margin: 28px auto 0;
+  padding: 0 16px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: border-color 0.15s;
+}
+
+.paper-link:focus-within {
+  border-color: var(--accent);
+}
+
+.paper-link:has(input[aria-invalid]) {
+  border-color: var(--err);
+}
+
+.paper-link-icon {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 15px;
+  user-select: none;
+}
+
+.paper-link input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+}
+
+.paper-link input::placeholder {
+  color: var(--text-dim);
+}
+
+/* Hint sits below the pill; revealed on focus or when the input is in use. */
+.paper-link-hint {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.paper-link:focus-within .paper-link-hint,
+.paper-link:has(input[aria-invalid]) .paper-link-hint {
+  opacity: 1;
+}
+
+.paper-link:has(input[aria-invalid]) .paper-link-hint {
+  color: var(--err);
+}

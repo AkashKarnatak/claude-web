@@ -11,6 +11,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useStore, type TranscriptItem } from '../store';
 import { AssistantMessage } from './AssistantMessage';
+import { PaperLink } from './PaperLink';
 import { ThinkingPanel } from './ThinkingPanel';
 import { ToolCard } from './ToolCard';
 import { UsageFooter } from './UsageFooter';
@@ -72,6 +73,7 @@ const ANCHOR_MARGIN = 132;
 
 export function MessageList() {
   const items = useStore((s) => s.items);
+  const isDraft = useStore((s) => s.activeId === null);
   const openSeq = useStore((s) => s.openSeq);
   const scrollRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -203,6 +205,7 @@ export function MessageList() {
               Start a new chat below — a conversation is created with your first
               message. Past chats live in the sidebar.
             </p>
+            {isDraft && <PaperLink />}
           </div>
         )}
         {items.map((item) => (
