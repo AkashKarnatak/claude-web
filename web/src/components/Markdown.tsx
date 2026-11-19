@@ -1,6 +1,8 @@
 // The Markdown + LaTeX + code pipeline (ARCHITECTURE.md §10.2).
 // remark-gfm + remark-math at the mdast stage, rehype-katex + highlighting at
 // the hast stage. Raw HTML stays disabled (react-markdown default).
+// Text preprocessing (math delimiters, currency `$`, dangling fences) lives
+// in ../markdownText.ts.
 
 import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -8,37 +10,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
-
-// Segments we must not touch when normalizing math delimiters: fenced code
-// blocks (possibly unterminated while streaming) and inline code spans.
-const CODE_SEGMENT = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]+`)/g;
-
-/**
- * remark-math only parses $...$ / $$...$$. Claude also emits \(...\) and
- * \[...\]; convert those on protected text (code excluded), per §10.2.
- */
-function normalizeMathDelimiters(md: string): string {
-  return md
-    .split(CODE_SEGMENT)
-    .map((segment, i) => {
-      if (i % 2 === 1) return segment; // code segment — leave untouched
-      return segment
-        .replace(/\\\[([\s\S]+?)\\\]/g, (_m, body: string) => `$$${body}$$`)
-        .replace(/\\\(([\s\S]+?)\\\)/g, (_m, body: string) => `$${body}$`);
-    })
-    .join('');
-}
-
-/**
- * Streaming policy (§7): partial Markdown may have an unbalanced code fence;
- * treat the tail as an open code block by appending a closing fence. The
- * canonical parse on assistant_end replaces this.
- */
-function closeDanglingFence(md: string): string {
-  const fences = md.match(/```/g);
-  if (fences && fences.length % 2 === 1) return md + '\n```';
-  return md;
-}
+import { closeDanglingFence, normalizeMath } from '../markdownText';
 
 interface MarkdownProps {
   markdown: string;
@@ -46,7 +18,7 @@ interface MarkdownProps {
 }
 
 export const Markdown = memo(function Markdown({ markdown, streaming }: MarkdownProps) {
-  let src = normalizeMathDelimiters(markdown);
+  let src = normalizeMath(markdown);
   if (streaming) src = closeDanglingFence(src);
   return (
     <div className="markdown">

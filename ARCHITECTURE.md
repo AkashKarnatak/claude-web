@@ -403,11 +403,16 @@ box. Claude also sometimes emits `\( ... \)` and `\[ ... \]`. To support those e
 Do the conversion on the AST or on protected text, not naively, to avoid touching
 code blocks.
 
-**Single-`$` vs. currency.** Because the source is real Markdown (not terminal text),
-prefer letting `remark-math` handle `$` disambiguation rather than custom regex. If
-false positives appear (e.g. "it costs $5 and $10"), consider requiring `$$` for
-display math and treating lone `$` conservatively, or gate inline `$` math behind the
-known conventions Claude uses. Test with real transcripts.
+**Single-`$` vs. currency.** `remark-math` (micromark's math-text tokenizer) pairs
+*any* two single `$` in a paragraph, so "costs $100 and the full $100K" renders
+" 100 and the full " as KaTeX. This showed up on real transcripts, so
+`web/src/markdownText.ts` applies pandoc's `tex_math_dollars` rules on protected
+text (code excluded) before parsing and backslash-escapes every `$` that cannot be a
+delimiter: the opener must be followed by a non-space, the closer must be preceded
+by a non-space and **not followed by a digit**, and a pair cannot span a blank line.
+`\$` is a CommonMark escape, so escaped dollars render literally. `\(...\)` /
+`\[...\]` conversion runs *after* this pass so stray prose `$` can never pair with
+generated delimiters.
 
 **Sanitization.** react-markdown does not render raw HTML unless you opt in. Keep raw
 HTML disabled (default) for safety, or if you enable it, run `rehype-sanitize`. KaTeX
