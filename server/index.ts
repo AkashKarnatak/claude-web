@@ -347,6 +347,10 @@ function activeConversationId(ws: WebSocket): string | null {
 
 function handleClientMsg(ws: WebSocket, msg: ClientMsg): void {
   switch (msg.t) {
+    case 'ping':
+      send(ws, { t: 'pong' });
+      return;
+
     case 'list_conversations':
       void refreshConversations().then((items) => send(ws, { t: 'conversations', items }));
       return;

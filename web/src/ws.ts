@@ -85,17 +85,34 @@ function dispatch(msg: ServerMsg): void {
     scheduleFlush();
     return;
   }
+  if (msg.t === 'pong') {
+    pongPending = false;
+    return;
+  }
   flushDeltas();
+
+  // Every (re)connection bootstraps onto a blank draft. When the URL names a
+  // chat (deep link, new tab, refresh, or a reconnect after the phone put
+  // the tab to sleep) we want that chat, not the draft: ask for it and keep
+  // whatever is on screen until its history arrives, so a reconnect never
+  // flashes the empty home screen. "+ New chat" resets the URL to / before
+  // requesting, so a user-initiated draft still clears the transcript.
+  const urlId = pathConversationId();
+  if (msg.t === 'draft' && urlId) {
+    send({ t: 'open_conversation', conversationId: urlId });
+    return;
+  }
+  // Same bootstrap, same reasoning: the draft-model session info would make
+  // the header flip to the default model for a beat before the chat's own
+  // session message follows its history.
+  if (msg.t === 'session' && msg.conversationId === '' && urlId && urlId === useStore.getState().activeId) {
+    return;
+  }
+
   useStore.getState().handleServerMsg(msg);
 
   // ---- URL routing: keep /c/<id> in sync with the open conversation ----
-  if (msg.t === 'draft') {
-    // Bootstrap/reconnect lands on a draft; when the URL names a chat
-    // (deep link, new tab, refresh), open it instead. "+ New chat" resets
-    // the URL to / before requesting, so this never loops.
-    const urlId = pathConversationId();
-    if (urlId) send({ t: 'open_conversation', conversationId: urlId });
-  } else if (msg.t === 'history') {
+  if (msg.t === 'history') {
     // A conversation opened (click, deep link, or the first prompt of a
     // draft minting one) — make the URL reflect it.
     replaceChatUrl(msg.conversationId);
@@ -104,8 +121,10 @@ function dispatch(msg: ServerMsg): void {
     const { activeId } = useStore.getState();
     if (activeId === msg.conversationId) replaceChatUrl(msg.conversationId);
   } else if (msg.t === 'error' && msg.message.startsWith('Unknown conversation')) {
-    // Stale deep link — back to the draft URL so reconnects don't retry it.
+    // Stale deep link — back to the draft URL so reconnects don't retry it,
+    // and clear the transcript we kept while waiting for the open.
     replaceChatUrl(null);
+    useStore.getState().handleServerMsg({ t: 'draft' });
   }
 
   if (msg.t === 'permission_request') {
@@ -134,9 +153,56 @@ function permissionDetail(tool: string, rawInput: unknown): string {
   return JSON.stringify(rawInput ?? {});
 }
 
+let retryTimer: number | null = null;
+let pongPending = false;
+let pongTimer: number | null = null;
+let resumeHooksInstalled = false;
+const PONG_TIMEOUT_MS = 3000;
+
+/**
+ * The tab just came back (mobile app switch, screen unlock, network back).
+ * Mobile browsers freeze the page in the background and usually kill the
+ * socket; the close event may only fire on resume, or — worse — never, with
+ * the socket left looking OPEN. Reconnect right away instead of waiting out
+ * the backoff, and probe an OPEN socket with a ping so a zombie is replaced
+ * within a few seconds rather than on the next failed send.
+ */
+function onResume(): void {
+  if (document.hidden) return;
+  if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+    if (retryTimer !== null) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+    retryMs = 500;
+    ws = null;
+    connect();
+    return;
+  }
+  if (ws.readyState === WebSocket.OPEN && !pongPending) {
+    pongPending = true;
+    send({ t: 'ping' });
+    pongTimer = window.setTimeout(() => {
+      pongTimer = null;
+      if (pongPending && ws?.readyState === WebSocket.OPEN) ws.close();
+    }, PONG_TIMEOUT_MS);
+  }
+}
+
+function installResumeHooks(): void {
+  if (resumeHooksInstalled) return;
+  resumeHooksInstalled = true;
+  document.addEventListener('visibilitychange', onResume);
+  window.addEventListener('pageshow', onResume);
+  window.addEventListener('focus', onResume);
+  window.addEventListener('online', onResume);
+}
+
 export function connect(): void {
+  installResumeHooks();
   // Idempotent: React StrictMode mounts effects twice in dev.
   if (ws && ws.readyState !== WebSocket.CLOSED) return;
+  retryTimer = null;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
 
@@ -156,7 +222,13 @@ export function connect(): void {
   ws.onclose = () => {
     useStore.getState().setConnected(false);
     ws = null;
-    setTimeout(connect, retryMs);
+    pongPending = false;
+    if (pongTimer !== null) {
+      clearTimeout(pongTimer);
+      pongTimer = null;
+    }
+    if (retryTimer !== null) clearTimeout(retryTimer);
+    retryTimer = window.setTimeout(connect, retryMs);
     retryMs = Math.min(retryMs * 2, 10_000);
   };
 

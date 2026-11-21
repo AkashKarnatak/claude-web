@@ -118,6 +118,8 @@ export type ServerMsg =
   | { t: 'history'; conversationId: string; meta: ConversationMeta; messages: ServerMsg[] }
   // Blank draft state: no conversation open; one is created on first prompt.
   | { t: 'draft' }
+  // Liveness reply to a client ping (mobile resume probes a possibly-dead socket).
+  | { t: 'pong' }
   // Token auth handshake (only when bound to a non-loopback HOST).
   | { t: 'auth_required' }
   | { t: 'auth_ok' }
@@ -140,5 +142,6 @@ export type ClientMsg =
   | { t: 'list_conversations' }
   | { t: 'suggest_files'; reqId: string; query: string }
   | { t: 'search'; reqId: string; query: string }
-  | { t: 'auth'; token: string };
+  | { t: 'auth'; token: string }
+  | { t: 'ping' };
 

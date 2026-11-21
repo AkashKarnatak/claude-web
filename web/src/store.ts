@@ -111,6 +111,10 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
       };
 
     case 'history': {
+      // A reconnect re-opens the chat that is already on screen (mobile tab
+      // resume, server restart). Refresh its content in place: no scroll
+      // reset, and keep the session header until the fresh one lands.
+      const sameChat = msg.conversationId === state.activeId;
       // Replay the persisted transcript through the same reducer.
       let acc: AppState = {
         ...state,
@@ -119,7 +123,7 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
         items: [],
         permissions: [],
         status: 'idle',
-        session: null,
+        session: sameChat ? state.session : null,
         turn: null,
         currentTool: null,
         activity: 'requesting',
@@ -132,7 +136,7 @@ function applyMsg(state: AppState, msg: ServerMsg): Partial<AppState> {
       return {
         ...acc,
         tasks: [],
-        openSeq: state.openSeq + 1,
+        openSeq: sameChat ? state.openSeq : state.openSeq + 1,
         items: acc.items.map((it) =>
           (it.kind === 'assistant' || it.kind === 'thinking') && it.streaming
             ? { ...it, streaming: false }
